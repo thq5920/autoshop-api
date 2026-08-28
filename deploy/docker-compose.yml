@@ -1,0 +1,20 @@
+services:
+  autoshop:
+    build: ..
+    container_name: autoshop-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      AUTOSHOP_ENV: ${AUTOSHOP_ENV:-prod}
+      AUTOSHOP_DEBUG: ${AUTOSHOP_DEBUG:-false}
+      SECRET_KEY: ${SECRET_KEY:-please-change-me}
+      AUTOSHOP_DB_PATH: /data/autoshop.db
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

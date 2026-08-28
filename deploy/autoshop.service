@@ -1,0 +1,24 @@
+[Unit]
+Description=AutoShop API (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=autoshop
+Group=autoshop
+WorkingDirectory=/opt/autoshop-api
+EnvironmentFile=/etc/autoshop/autoshop.env
+ExecStart=/opt/autoshop-api/.venv/bin/gunicorn app.main:app \
+    -k uvicorn.workers.UvicornWorker \
+    -w 2 \
+    -b 127.0.0.1:8000 \
+    --timeout 60 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level info
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
