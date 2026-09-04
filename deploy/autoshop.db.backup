@@ -1,4 +1,0 @@
-# 每天凌晨 2 点备份 SQLite 数据库(.backup 原子安全)
-0 2 * * * autoshop cd /opt/autoshop-api && \
-  sqlite3 /var/lib/autoshop/autoshop.db ".backup /var/backups/autoshop/autoshop-$(date +\%Y\%m\%d).db" && \
-  find /var/backups/autoshop -name 'autoshop-*.db' -mtime +14 -delete

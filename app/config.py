@@ -1,8 +1,8 @@
 """应用配置"""
 import os
-from pathlib import Path
+from urllib.parse import quote_plus
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class Settings:
@@ -10,9 +10,22 @@ class Settings:
     APP_VERSION: str = "1.0.0"
     API_PREFIX: str = "/api/v1"
 
-    # 数据库
-    DB_PATH: str = os.getenv("AUTOSHOP_DB_PATH", str(BASE_DIR / "autoshop.db"))
-    SQLALCHEMY_DATABASE_URL: str = f"sqlite:///{DB_PATH}"
+    # 数据库 —— MySQL
+    MYSQL_HOST: str = os.getenv("MYSQL_HOST", "127.0.0.1")
+    MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", "3306"))
+    MYSQL_USER: str = os.getenv("MYSQL_USER", "autoshop")
+    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "autoshop")
+    MYSQL_DB: str = os.getenv("MYSQL_DB", "autoshop")
+    MYSQL_CHARSET: str = os.getenv("MYSQL_CHARSET", "utf8mb4")
+
+    @property
+    def SQLALCHEMY_DATABASE_URL(self) -> str:
+        pw = quote_plus(self.MYSQL_PASSWORD)
+        return (
+            f"mysql+pymysql://{self.MYSQL_USER}:{pw}"
+            f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
+            f"?charset={self.MYSQL_CHARSET}"
+        )
 
     # JWT
     SECRET_KEY: str = os.getenv(

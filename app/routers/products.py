@@ -46,7 +46,7 @@ def list_products(
                     productId=p.id,
                     name=p.name,
                     category=p.category,
-                    price=p.price,
+                    price=float(p.price),
                     stock=p.stock,
                     status=p.status,
                 )
@@ -55,7 +55,7 @@ def list_products(
             page=page,
             pageSize=pageSize,
             total=total,
-        ).model_dump(),
+        ).model_dump(mode="json"),
     )
 
 
@@ -70,7 +70,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
             "name": p.name,
             "description": p.description,
             "category": p.category,
-            "price": p.price,
+            "price": float(p.price),
             "stock": p.stock,
             "status": p.status,
         }

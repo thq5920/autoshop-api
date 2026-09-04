@@ -1,17 +1,47 @@
+version: "3.9"
+
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: autoshop-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_DATABASE: autoshop
+      MYSQL_USER: autoshop
+      MYSQL_PASSWORD: autoshoppw
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpw"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
   autoshop:
     build: ..
     container_name: autoshop-api
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
     ports:
       - "8000:8000"
-    volumes:
-      - ./data:/data
     environment:
       AUTOSHOP_ENV: ${AUTOSHOP_ENV:-prod}
       AUTOSHOP_DEBUG: ${AUTOSHOP_DEBUG:-false}
       SECRET_KEY: ${SECRET_KEY:-please-change-me}
-      AUTOSHOP_DB_PATH: /data/autoshop.db
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: autoshop
+      MYSQL_PASSWORD: autoshoppw
+      MYSQL_DB: autoshop
+      MYSQL_CHARSET: utf8mb4
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]

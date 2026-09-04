@@ -1,5 +1,6 @@
 """订单服务"""
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -38,7 +39,12 @@ def create_order(
         if it.quantity > it.product.stock:
             raise BizException(BizCode.PARAM_INVALID, "Insufficient stock", 400)
 
-    total_amount = round(sum(it.unit_price * it.quantity for it in items), 2)
+    # Decimal 精确计算,避免浮点舍入误差
+    total_amount = sum(
+        Decimal(str(it.unit_price)) * it.quantity for it in items
+    )
+    total_amount = float(total_amount.quantize(Decimal("0.01")))
+
     mock_result = req.mockResult or "SUCCESS"
     order_status, payment_status = _MOCK_STATUS_MAP[mock_result]
 
@@ -55,17 +61,18 @@ def create_order(
     db.flush()  # 取 order.id
 
     for it in items:
+        line_amount = Decimal(str(it.unit_price)) * it.quantity
         db.add(
             OrderItem(
                 order_id=order.id,
                 product_id=it.product_id,
                 product_name=it.product.name,
                 quantity=it.quantity,
-                unit_price=it.unit_price,
-                amount=round(it.unit_price * it.quantity, 2),
+                unit_price=float(it.unit_price),
+                amount=float(line_amount.quantize(Decimal("0.01"))),
             )
         )
-        # 扣库存 + 删购物车(即使 PENDING/FAIL 也按文档扣减,便于"查订单详情"用例)
+        # 扣库存 + 删购物车
         it.product.stock -= it.quantity
         db.delete(it)
 
@@ -77,7 +84,7 @@ def create_order(
         orderNo=order.order_no,
         orderStatus=order.order_status,
         paymentStatus=order.payment_status,
-        totalAmount=order.total_amount,
+        totalAmount=float(order.total_amount),
         createdAt=order.created_at,
     )
 
@@ -103,7 +110,7 @@ def list_orders(
                 "orderId": o.id,
                 "orderNo": o.order_no,
                 "orderStatus": o.order_status,
-                "totalAmount": o.total_amount,
+                "totalAmount": float(o.total_amount),
                 "createdAt": o.created_at,
             }
             for o in rows
@@ -123,14 +130,14 @@ def get_order_detail(db: Session, user: User, order_id: int) -> OrderDetail:
         orderNo=order.order_no,
         orderStatus=order.order_status,
         paymentStatus=order.payment_status,
-        totalAmount=order.total_amount,
+        totalAmount=float(order.total_amount),
         items=[
             OrderItemView(
                 productId=oi.product_id,
                 productName=oi.product_name,
                 quantity=oi.quantity,
-                unitPrice=oi.unit_price,
-                amount=oi.amount,
+                unitPrice=float(oi.unit_price),
+                amount=float(oi.amount),
             )
             for oi in order.items
         ],

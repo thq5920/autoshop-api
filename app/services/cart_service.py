@@ -1,4 +1,6 @@
 """购物车服务"""
+from decimal import Decimal
+
 from sqlalchemy.orm import Session
 
 from app.exceptions import BizCode, BizException
@@ -31,11 +33,12 @@ def add_to_cart(db: Session, user: User, product_id: int, quantity: int) -> Cart
         db.refresh(existing)
         return existing
 
+    # product.price 是 Numeric(10,2) -> Decimal,转成 float 存到 Numeric 列
     item = CartItem(
         user_id=user.id,
         product_id=product_id,
         quantity=quantity,
-        unit_price=product.price,
+        unit_price=float(product.price),
     )
     db.add(item)
     db.commit()
@@ -47,22 +50,26 @@ def list_cart(db: Session, user: User) -> CartData:
     items = db.query(CartItem).filter(CartItem.user_id == user.id).all()
     views: list[CartItemView] = []
     total_qty = 0
-    total_amount = 0.0
+    total_amount = Decimal("0")
     for it in items:
-        amount = it.unit_price * it.quantity
+        amount = Decimal(str(it.unit_price)) * it.quantity
         views.append(
             CartItemView(
                 cartItemId=it.id,
                 productId=it.product_id,
                 productName=it.product.name,
                 quantity=it.quantity,
-                unitPrice=it.unit_price,
-                totalAmount=amount,
+                unitPrice=float(it.unit_price),
+                totalAmount=float(amount),
             )
         )
         total_qty += it.quantity
         total_amount += amount
-    return CartData(items=views, totalQuantity=total_qty, totalAmount=round(total_amount, 2))
+    return CartData(
+        items=views,
+        totalQuantity=total_qty,
+        totalAmount=float(total_amount.quantize(Decimal("0.01"))),
+    )
 
 
 def update_cart_item(db: Session, user: User, cart_item_id: int, quantity: int) -> CartItem:

@@ -1,6 +1,5 @@
 """SQLAlchemy 数据库引擎与 Session"""
-from sqlalchemy import create_engine, event
-from sqlalchemy.engine import Engine
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import settings
@@ -14,21 +13,11 @@ engine = create_engine(
     settings.SQLALCHEMY_DATABASE_URL,
     echo=False,
     future=True,
-    connect_args={"check_same_thread": False},
+    pool_pre_ping=True,    # MySQL 空闲断开保活
+    pool_recycle=3600,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
-
-
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    """启用 SQLite WAL + busy_timeout,提升并发写性能"""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL;")
-    cursor.execute("PRAGMA synchronous=NORMAL;")
-    cursor.execute("PRAGMA busy_timeout=5000;")
-    cursor.execute("PRAGMA foreign_keys=ON;")
-    cursor.close()
 
 
 def get_db():

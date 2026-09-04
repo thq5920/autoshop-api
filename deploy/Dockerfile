@@ -6,19 +6,15 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# 系统依赖(SQLite 通常已自带,显式装一下)
+# 系统依赖(Pure Python MySQL 驱动,不需要系统 mysql 库)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    sqlite3 curl \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY app ./app
-
-# 数据卷
-RUN mkdir -p /data
-ENV AUTOSHOP_DB_PATH=/data/autoshop.db
 
 EXPOSE 8000
 
