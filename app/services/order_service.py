@@ -25,21 +25,23 @@ def _gen_order_no(user_id: int) -> str:
 def create_order(
     db: Session, user: User, req: CreateOrderRequest
 ) -> CreateOrderData:
+    if not req.cartItemIds:
+        raise BizException(BizCode.CART_EMPTY, http_status=400)
+
     items = (
         db.query(CartItem)
         .filter(CartItem.user_id == user.id, CartItem.id.in_(req.cartItemIds))
         .all()
     )
     if len(items) != len(set(req.cartItemIds)):
-        raise BizException(BizCode.NOT_FOUND, "Cart item not found", 404)
+        raise BizException(BizCode.CART_ITEM_NOT_FOUND, http_status=404)
 
     for it in items:
         if it.product.status != "ON_SALE":
-            raise BizException(BizCode.PRODUCT_OFF_SHELF, "Product is off shelf", 400)
+            raise BizException(BizCode.PRODUCT_OFF_SHELF, http_status=400)
         if it.quantity > it.product.stock:
-            raise BizException(BizCode.PARAM_INVALID, "Insufficient stock", 400)
+            raise BizException(BizCode.INSUFFICIENT_STOCK, http_status=400)
 
-    # Decimal 精确计算,避免浮点舍入误差
     total_amount = sum(
         Decimal(str(it.unit_price)) * it.quantity for it in items
     )
@@ -58,7 +60,7 @@ def create_order(
         remark=req.remark,
     )
     db.add(order)
-    db.flush()  # 取 order.id
+    db.flush()
 
     for it in items:
         line_amount = Decimal(str(it.unit_price)) * it.quantity
@@ -72,7 +74,6 @@ def create_order(
                 amount=float(line_amount.quantize(Decimal("0.01"))),
             )
         )
-        # 扣库存 + 删购物车
         it.product.stock -= it.quantity
         db.delete(it)
 
@@ -124,7 +125,7 @@ def list_orders(
 def get_order_detail(db: Session, user: User, order_id: int) -> OrderDetail:
     order = db.get(Order, order_id)
     if not order or order.user_id != user.id:
-        raise BizException(BizCode.NOT_FOUND, "Order not found", 404)
+        raise BizException(BizCode.ORDER_NOT_FOUND, http_status=404)
     return OrderDetail(
         orderId=order.id,
         orderNo=order.order_no,

@@ -22,9 +22,9 @@ def list_products(
     db: Session = Depends(get_db),
 ):
     if page < 1:
-        raise BizException(BizCode.PARAM_INVALID, "page must be >= 1", 400)
+        raise BizException(BizCode.PARAM_OUT_OF_RANGE, http_status=400)
     if not (1 <= pageSize <= 100):
-        raise BizException(BizCode.PARAM_INVALID, "pageSize must be in [1,100]", 400)
+        raise BizException(BizCode.PARAM_OUT_OF_RANGE, http_status=400)
 
     q = db.query(Product)
     if keyword:
@@ -63,7 +63,7 @@ def list_products(
 def get_product(product_id: int, db: Session = Depends(get_db)):
     p = db.get(Product, product_id)
     if not p:
-        raise BizException(BizCode.NOT_FOUND, "Product not found", 404)
+        raise BizException(BizCode.PRODUCT_NOT_FOUND, http_status=404)
     return ok(
         data={
             "productId": p.id,

@@ -32,16 +32,23 @@ def update_me(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # 全部未传 → 40402 资料无任何更新
+    if req.nickname is None and req.phone is None and req.email is None:
+        raise BizException(BizCode.NO_UPDATE_FIELDS, http_status=400)
+
     if req.nickname is not None:
         user.nickname = req.nickname
     if req.phone is not None:
         user.phone = req.phone
     if req.email is not None:
-        # 检查邮箱唯一
         from app.models.user import User as UserModel
-        exists = db.query(UserModel).filter(UserModel.email == req.email, UserModel.id != user.id).first()
+        exists = (
+            db.query(UserModel)
+            .filter(UserModel.email == req.email, UserModel.id != user.id)
+            .first()
+        )
         if exists:
-            raise BizException(BizCode.CONFLICT, "Email already exists", 409)
+            raise BizException(BizCode.EMAIL_ALREADY_EXISTS, http_status=409)
         user.email = req.email
     db.commit()
     db.refresh(user)

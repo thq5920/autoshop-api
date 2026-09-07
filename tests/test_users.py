@@ -34,10 +34,27 @@ def test_update_me(fresh_user):
 
 
 def test_update_me_invalid_phone(fresh_user):
+    """手机号格式错误 → 422 + 40209 PHONE_FORMAT_ERROR"""
     client, _ = fresh_user
     r = client.put("/users/me", json={"phone": "12345"})
+    assert r.status_code == 422
+    assert_biz_code(r.json(), 40209)
+
+
+def test_update_me_nickname_too_long(fresh_user):
+    """昵称过长 → 422 + 40210 NICKNAME_TOO_LONG"""
+    client, _ = fresh_user
+    r = client.put("/users/me", json={"nickname": "x" * 51})
+    assert r.status_code == 422
+    assert_biz_code(r.json(), 40210)
+
+
+def test_update_me_no_fields(fresh_user):
+    """没传任何字段 → 400 + 40402 NO_UPDATE_FIELDS"""
+    client, _ = fresh_user
+    r = client.put("/users/me", json={})
     assert r.status_code == 400
-    assert_biz_code(r.json(), 40001)
+    assert_biz_code(r.json(), 40402)
 
 
 def test_me_without_auth(client):

@@ -46,7 +46,7 @@ def test_get_product_detail(client):
 def test_get_product_not_found(client):
     r = client.get("/products/99999")
     assert r.status_code == 404
-    assert_biz_code(r.json(), 40401)
+    assert_biz_code(r.json(), 40501)  # PRODUCT_NOT_FOUND
 
 
 def test_get_off_shelf_product(client):

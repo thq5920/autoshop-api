@@ -68,7 +68,7 @@ def test_create_order_invalid_cart_item(fresh_user):
         "receiver": RECEIVER,
     })
     assert r.status_code == 404
-    assert_biz_code(r.json(), 40401)
+    assert_biz_code(r.json(), 40601)  # CART_ITEM_NOT_FOUND
 
 
 def test_create_order_off_shelf_product(fresh_user):
@@ -79,15 +79,15 @@ def test_create_order_off_shelf_product(fresh_user):
         "receiver": RECEIVER,
     })
     assert r.status_code == 400
-    assert_biz_code(r.json(), 40003)
+    assert_biz_code(r.json(), 40502)  # PRODUCT_OFF_SHELF
 
 
 def test_create_order_insufficient_stock(fresh_user):
     client, _ = fresh_user
-    # AirPods 库存 0
+    # AirPods 库存 0 → 加车时就被 INSUFFICIENT_STOCK 拒绝
     r = client.post("/cart/items", json={"productId": 1003, "quantity": 1})
-    assert r.json()["code"] == 40001  # 加车时就拒绝
-    assert_biz_code(r.json(), 40001)
+    assert r.status_code == 400
+    assert_biz_code(r.json(), 40503)
 
 
 def test_list_my_orders(fresh_user):
@@ -133,10 +133,10 @@ def test_get_order_detail_not_found(fresh_user):
     client, _ = fresh_user
     r = client.get("/orders/9999999")
     assert r.status_code == 404
-    assert_biz_code(r.json(), 40401)
+    assert_biz_code(r.json(), 40701)  # ORDER_NOT_FOUND
 
 
 def test_order_without_auth(client):
     r = client.post("/orders", json={"cartItemIds": [1], "receiver": RECEIVER})
     assert r.status_code == 401
-    assert_biz_code(r.json(), 40101)
+    assert_biz_code(r.json(), 40101)  # UNAUTHORIZED

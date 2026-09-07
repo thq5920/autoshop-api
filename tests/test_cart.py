@@ -33,21 +33,21 @@ def test_add_to_cart_out_of_stock(fresh_user):
     client, _ = fresh_user
     r = client.post("/cart/items", json={"productId": 1003, "quantity": 1})
     assert r.status_code == 400
-    assert_biz_code(r.json(), 40001)
+    assert_biz_code(r.json(), 40503)  # INSUFFICIENT_STOCK
 
 
 def test_add_to_cart_off_shelf(fresh_user):
     client, _ = fresh_user
     r = client.post("/cart/items", json={"productId": 1004, "quantity": 1})
     assert r.status_code == 400
-    assert_biz_code(r.json(), 40003)
+    assert_biz_code(r.json(), 40502)  # PRODUCT_OFF_SHELF
 
 
 def test_add_to_cart_product_not_found(fresh_user):
     client, _ = fresh_user
     r = client.post("/cart/items", json={"productId": 99999, "quantity": 1})
     assert r.status_code == 404
-    assert_biz_code(r.json(), 40401)
+    assert_biz_code(r.json(), 40501)  # PRODUCT_NOT_FOUND
 
 
 def test_update_cart_item_quantity(fresh_user):
@@ -65,7 +65,7 @@ def test_update_cart_item_not_found(fresh_user):
     client, _ = fresh_user
     r = client.put("/cart/items/9999999", json={"quantity": 1})
     assert r.status_code == 404
-    assert_biz_code(r.json(), 40401)
+    assert_biz_code(r.json(), 40601)  # CART_ITEM_NOT_FOUND
 
 
 def test_delete_cart_item(fresh_user):
@@ -83,10 +83,19 @@ def test_delete_cart_item(fresh_user):
 def test_cart_without_auth(client):
     r = client.get("/cart")
     assert r.status_code == 401
-    assert_biz_code(r.json(), 40101)
+    assert_biz_code(r.json(), 40101)  # UNAUTHORIZED
 
 
 def test_add_to_cart_without_auth(client):
     r = client.post("/cart/items", json={"productId": 1001, "quantity": 1})
     assert r.status_code == 401
     assert_biz_code(r.json(), 40101)
+
+
+def test_add_to_cart_quantity_invalid(fresh_user):
+    """Pydantic Field(ge=1) 拦截 quantity=0 → 422 + 40001(数量约束通用码)"""
+    client, _ = fresh_user
+    r = client.post("/cart/items", json={"productId": 1001, "quantity": 0})
+    assert r.status_code == 422
+    # quantity 是 Pydantic Field 约束,落到 PARAM_INVALID 兜底
+    assert_biz_code(r.json(), 40001)

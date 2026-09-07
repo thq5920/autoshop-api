@@ -14,22 +14,22 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     if not authorization or not authorization.startswith("Bearer "):
-        raise BizException(BizCode.UNAUTHORIZED, "未登录", 401)
+        raise BizException(BizCode.UNAUTHORIZED, http_status=401)
     token = authorization[7:].strip()
     if not token:
-        raise BizException(BizCode.UNAUTHORIZED, "未登录", 401)
+        raise BizException(BizCode.UNAUTHORIZED, http_status=401)
     try:
         payload = decode_token(token)
     except ExpiredSignatureError:
-        raise BizException(BizCode.TOKEN_EXPIRED, "Token 已过期", 401)
+        raise BizException(BizCode.TOKEN_EXPIRED, http_status=401)
     except InvalidTokenError:
-        raise BizException(BizCode.TOKEN_INVALID, "Token 无效", 401)
+        raise BizException(BizCode.TOKEN_INVALID, http_status=401)
 
     user_id = payload.get("user_id")
     if not user_id:
-        raise BizException(BizCode.TOKEN_INVALID, "Token 无效", 401)
+        raise BizException(BizCode.TOKEN_INVALID, http_status=401)
 
     user = db.get(User, user_id)
     if not user:
-        raise BizException(BizCode.NOT_FOUND, "用户不存在", 404)
+        raise BizException(BizCode.USER_NOT_FOUND, http_status=404)
     return user

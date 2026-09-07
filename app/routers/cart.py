@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.exceptions import BizCode, BizException
 from app.models.user import User
 from app.response import ok
 from app.schemas.cart import (
@@ -22,6 +23,12 @@ from app.services.cart_service import (
 router = APIRouter(prefix="/cart", tags=["cart"])
 
 
+def _ensure_quantity_valid(quantity: int) -> None:
+    """数量兜底校验:Pydantic 已被绕过时(如直传 dict / 服务层调用)给具体码 40504"""
+    if not isinstance(quantity, int) or quantity < 1 or quantity > 9999:
+        raise BizException(BizCode.QUANTITY_INVALID, http_status=400)
+
+
 @router.get("", response_model=None)
 def get_cart(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return ok(data=list_cart(db, user).model_dump(mode="json"))
@@ -33,8 +40,8 @@ def add_item(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _ensure_quantity_valid(req.quantity)
     item = add_to_cart(db, user, req.productId, req.quantity)
-    # unit_price 已转为 float,直接传给 Pydantic
     total = item.unit_price * item.quantity
     return ok(
         data=AddCartItemData(
@@ -54,6 +61,7 @@ def update_item(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _ensure_quantity_valid(req.quantity)
     item = update_cart_item(db, user, cart_item_id, req.quantity)
     total = item.unit_price * item.quantity
     return ok(

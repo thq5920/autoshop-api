@@ -42,5 +42,11 @@ class Settings:
     ENV: str = os.getenv("AUTOSHOP_ENV", "dev")
     DEBUG: bool = os.getenv("AUTOSHOP_DEBUG", "true").lower() == "true"
 
+    # 是否对外暴露登录失败的具体原因(账号不存在 / 密码错误)
+    # 测试场景默认开启以便断言具体码值;生产(prod)建议关闭以防账号枚举
+    EXPOSE_AUTH_DETAIL: bool = os.getenv(
+        "AUTOSHOP_EXPOSE_AUTH_DETAIL", "true"
+    ).lower() == "true"
+
 
 settings = Settings()
