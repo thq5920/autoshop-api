@@ -1,7 +1,14 @@
 """订单模型"""
+from datetime import datetime, timezone
+
 from sqlalchemy import Column, DateTime, Index, Integer, JSON, Numeric, String
 
 from app.database import Base
+
+
+def _utcnow_naive() -> datetime:
+    """下单时间默认值:UTC naive datetime,MySQL DATETIME 不存时区,统一按 UTC 解读。"""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Order(Base):
@@ -34,7 +41,14 @@ class Order(Base):
     )
     receiver = Column(JSON, nullable=False, comment="收货人信息JSON")
     remark = Column(String(200), nullable=True, comment="订单备注")
-    created_at = Column(DateTime, nullable=False, comment="下单时间")
+    # 修复:Order 模型此前没有 created_at 默认值,导致 INSERT 时违反 NOT NULL 约束。
+    # 这里与服务层保持 UTC(naive),与 `users.created_at` 的 default 风格一致。
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=_utcnow_naive,
+        comment="下单时间",
+    )
 
 
 class OrderItem(Base):

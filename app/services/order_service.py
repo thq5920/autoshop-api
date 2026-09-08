@@ -1,4 +1,9 @@
-"""订单服务"""
+"""订单服务。
+
+由于项目刻意不在数据库层引入 FOREIGN KEY、且 Model 上不声明 `relationship()`,
+所有跨 Model 的属性访问都必须通过显式 `db.get(Model, id)` /
+`db.query(Model).filter(...).all()` 取得,避免 Lazy/Auto load 触发不存在的关联。
+"""
 from datetime import datetime
 from decimal import Decimal
 
@@ -7,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.exceptions import BizCode, BizException
 from app.models.cart import CartItem
 from app.models.order import Order, OrderItem
+from app.models.product import Product
 from app.models.user import User
 from app.schemas.order import CreateOrderData, CreateOrderRequest, OrderDetail, OrderItemView
 
@@ -19,7 +25,17 @@ _MOCK_STATUS_MAP = {
 
 
 def _gen_order_no(user_id: int) -> str:
-    return f"MOCK{datetime.now().strftime('%Y%m%d%H%M%S')}{user_id:04d}"
+    # %Y%m%d%H%M%S = 14 位;但测试与 JSON Schema 都按 12 位 %y%m%d%H%M%S 来断言,
+    # 这里统一改为 12 位短格式以保持一致。
+    return f"MOCK{datetime.now().strftime('%y%m%d%H%M%S')}{user_id:04d}"
+
+
+def _load_products_map(db: Session, product_ids: set[int]) -> dict[int, Product]:
+    """一次性按 ID 列表预加载 Product,避免在循环里 N+1。"""
+    if not product_ids:
+        return {}
+    rows = db.query(Product).filter(Product.id.in_(product_ids)).all()
+    return {p.id: p for p in rows}
 
 
 def create_order(
@@ -36,10 +52,17 @@ def create_order(
     if len(items) != len(set(req.cartItemIds)):
         raise BizException(BizCode.CART_ITEM_NOT_FOUND, http_status=404)
 
+    # 显式预加载所有涉及商品,后续业务校验 / 扣库存都用查到的 Product,
+    # 不再依赖 `it.product.status` / `it.product.stock` / `it.product.name`。
+    products = _load_products_map(db, {it.product_id for it in items})
+
     for it in items:
-        if it.product.status != "ON_SALE":
+        product = products.get(it.product_id)
+        if product is None:
+            raise BizException(BizCode.PRODUCT_NOT_FOUND, http_status=404)
+        if product.status != "ON_SALE":
             raise BizException(BizCode.PRODUCT_OFF_SHELF, http_status=400)
-        if it.quantity > it.product.stock:
+        if it.quantity > product.stock:
             raise BizException(BizCode.INSUFFICIENT_STOCK, http_status=400)
 
     total_amount = sum(
@@ -63,18 +86,20 @@ def create_order(
     db.flush()
 
     for it in items:
+        product = products[it.product_id]
         line_amount = Decimal(str(it.unit_price)) * it.quantity
         db.add(
             OrderItem(
                 order_id=order.id,
                 product_id=it.product_id,
-                product_name=it.product.name,
+                product_name=product.name,
                 quantity=it.quantity,
                 unit_price=float(it.unit_price),
                 amount=float(line_amount.quantize(Decimal("0.01"))),
             )
         )
-        it.product.stock -= it.quantity
+        # 通过 ORM 实例修改库存,SQLAlchemy 会在 flush 时正确生成 UPDATE。
+        product.stock -= it.quantity
         db.delete(it)
 
     db.commit()
@@ -126,6 +151,13 @@ def get_order_detail(db: Session, user: User, order_id: int) -> OrderDetail:
     order = db.get(Order, order_id)
     if not order or order.user_id != user.id:
         raise BizException(BizCode.ORDER_NOT_FOUND, http_status=404)
+
+    # 显式查询 OrderItem,不再访问不存在的 `order.items`。
+    items = (
+        db.query(OrderItem)
+        .filter(OrderItem.order_id == order.id)
+        .all()
+    )
     return OrderDetail(
         orderId=order.id,
         orderNo=order.order_no,
@@ -140,7 +172,7 @@ def get_order_detail(db: Session, user: User, order_id: int) -> OrderDetail:
                 unitPrice=float(oi.unit_price),
                 amount=float(oi.amount),
             )
-            for oi in order.items
+            for oi in items
         ],
         receiver=order.receiver,
         createdAt=order.created_at,

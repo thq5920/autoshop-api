@@ -5,18 +5,40 @@
 """
 import re
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
+from email_validator import validate_email, EmailNotValidError
 
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
 PHONE_RE = re.compile(r"^1[3-9]\d{9}$")
+EMAIL_MAX_LEN = 120
+
+
+def _validate_email_str(v: str) -> str:
+    """将 email 校验统一定向到 40207 EMAIL_FORMAT_ERROR 业务码。
+
+    使用 `email_validator` 库 (项目已在 requirements 中) 取代 pydantic 内置
+    EmailStr,后者抛出的错误不会带业务码哨兵字符串,会落到兜底 40001。
+    """
+    if len(v) > EMAIL_MAX_LEN:
+        raise ValueError("40208")  # EMAIL_TOO_LONG
+    try:
+        info = validate_email(v, check_deliverability=False)
+    except EmailNotValidError:
+        raise ValueError("40207") from None  # EMAIL_FORMAT_ERROR
+    return info.normalized
 
 
 class RegisterRequest(BaseModel):
     username: str
     password: str
-    email: EmailStr
+    email: str
     phone: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def _v_email(cls, v: str) -> str:
+        return _validate_email_str(v)
 
     @field_validator("username")
     @classmethod

@@ -1,4 +1,12 @@
-"""SQLAlchemy 数据库引擎与 Session"""
+"""SQLAlchemy 数据库引擎与 Session。
+
+设计原则:
+- 数据库层不持有 DROP TABLE / 重建表的能力。
+- 初始化只负责"按 Model 建表"(`init_db`),已存在的表不会被改动。
+- 测试重置只清空数据(`clear_test_data`),保留表结构与外键策略。
+- 本项目不使用 MySQL FOREIGN KEY (由业务代码保证关联完整性),
+  所有 TRUNCATE 可按任意顺序,但保留一个固定顺序以方便排错与日志比对。
+"""
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -30,30 +38,55 @@ def get_db():
 
 
 def _import_models():
-    """导入所有模型以注册到 Base.metadata（无任何外键定义）"""
+    """导入所有模型以注册到 Base.metadata(无任何外键定义)"""
     from app.models import user, product, cart, order  # noqa: F401
 
 
+# 测试数据清空顺序。
+# 顺序按依赖反向排(虽然无 FK 但写代码保持一致便于审计),
+# 同时也会被 SQL 脚本 / README 引用,如有调整请同步。
+_TRUNCATE_ORDER = (
+    "order_items",
+    "orders",
+    "cart_items",
+    "products",
+    "users",
+)
+
+
 def init_db():
-    """建表(由 main.py / seed.py 调用)。
-    通过 SQLAlchemy Model 建表，不会生成任何 FOREIGN KEY。
+    """创建不存在的表(由 main.py 启动时调用)。
+
+    - 只会 `CREATE TABLE IF NOT EXISTS`,已存在的表及其数据不会被改动;
+    - 由 SQLAlchemy Model 的 `Column` 定义建表,不会生成 FOREIGN KEY;
+    - 重复启动幂等。
     """
     _import_models()
     Base.metadata.create_all(bind=engine)
 
 
-def reset_db():
-    """一次性重置所有表：DROP 全部表 + 重新 CREATE（无外键，带中文注释）。
-    不做备份，不保留任何数据。
-    依赖 SQLAlchemy Model 中的 __table_args__ / comment 定义。
+def clear_test_data():
+    """清空测试数据但保留表结构。
+
+    - MySQL (项目目标方言): 使用 `TRUNCATE TABLE`,并通过 SET FOREIGN_KEY_CHECKS
+      兼容可能存在的历史 FK;TRUNCATE 同时重置 AUTO_INCREMENT。
+    - 其他方言 (例如 SQLite 用于本地集成测试): 回退为 `DELETE FROM`,
+      效果等价于"清空数据,保留表结构"。
+    - 按 `_TRUNCATE_ORDER` 逆依赖顺序执行,与 README 描述保持一致。
     """
-    _import_models()
-    # 关闭外键检查，按依赖逆序 DROP
+    use_truncate = engine.dialect.name in ("mysql", "mariadb")
+    fk_off_sql = "SET FOREIGN_KEY_CHECKS = 0" if use_truncate else None
+    fk_on_sql = "SET FOREIGN_KEY_CHECKS = 1" if use_truncate else None
+
     with engine.begin() as conn:
-        conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
-        for table in reversed(Base.metadata.sorted_tables):
-            conn.execute(text(f"DROP TABLE IF EXISTS `{table.name}`"))
-        conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
-        # 重新建表（Model 中已无 ForeignKey，create_all 不会生成外键）
-        Base.metadata.create_all(bind=engine)
-    print("[reset_db] all tables dropped and recreated (no foreign keys).")
+        if fk_off_sql is not None:
+            conn.execute(text(fk_off_sql))
+        try:
+            for table in _TRUNCATE_ORDER:
+                if use_truncate:
+                    conn.execute(text(f"TRUNCATE TABLE `{table}`"))
+                else:
+                    conn.execute(text(f"DELETE FROM `{table}`"))
+        finally:
+            if fk_on_sql is not None:
+                conn.execute(text(fk_on_sql))

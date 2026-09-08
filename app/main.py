@@ -7,7 +7,7 @@ from app.database import init_db
 from app.exceptions import register_exception_handlers
 from app.response import ok
 from app.routers import auth, cart, internal, orders, products, users
-from app.seed import seed_if_empty
+from app.seed import seed_db
 
 
 def create_app() -> FastAPI:
@@ -33,8 +33,9 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     def _startup():
+        # 启动时只做"建表 + 补充缺失 Seed 数据",不动已有业务数据。
         init_db()
-        seed_if_empty()
+        seed_db()
 
     return app
 

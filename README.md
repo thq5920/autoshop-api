@@ -23,12 +23,12 @@ AutoShop API/
 ├── app/
 │   ├── main.py              # FastAPI 入口
 │   ├── config.py            # 配置(含 MySQL 连接参数)
-│   ├── database.py          # SQLAlchemy engine / Session（含 reset_db）
+│   ├── database.py          # SQLAlchemy engine / Session（含 init_db / clear_test_data）
 │   ├── deps.py              # get_current_user 依赖
 │   ├── security.py          # JWT + bcrypt
 │   ├── response.py          # 标准响应信封
 │   ├── exceptions.py        # BizException + 统一处理
-│   ├── seed.py              # 种子数据
+│   ├── seed.py              # 种子数据（seed_db / clear_test_data / seed_test_data / reset_test_data）
 │   ├── models/              # ORM 模型（无 FOREIGN KEY，仅业务逻辑关联）
 │   ├── schemas/             # Pydantic 模型
 │   ├── routers/             # 5 个路由模块
@@ -47,8 +47,9 @@ AutoShop API/
 | 数据库脚本 | 说明 |
 |---|---|
 | `scripts/schema.sql` | 完整建表 SQL（无外键，带中文注释） |
-| `scripts/reset_database.sql` | 测试前重置数据库（TRUNCATE + 种子数据） |
 | `scripts/remove_foreign_keys.sql` | 删除现有数据库中的所有外键约束 |
+
+> ℹ️ 已移除 `scripts/reset_database.sql`：测试环境的数据重置统一通过 `POST /api/v1/_test/reset` 接口（DEBUG=true 时启用）完成，底层由 `app.seed.reset_test_data()` 实现 —— 即 `clear_test_data()` (TRUNCATE) + `seed_test_data()`，并使用 Python `hash_password()` 实时生成 demo 用户的真实 bcrypt 哈希，杜绝 SQL 占位 hash。
 
 ---
 

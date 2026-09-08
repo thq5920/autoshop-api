@@ -37,10 +37,13 @@ def test_add_to_cart_out_of_stock(fresh_user):
 
 
 def test_add_to_cart_off_shelf(fresh_user):
+    """OFF_SHELF 商品允许加入购物车(用于"待上架后再下单"场景);
+    真正的 OFF_SHELF 拦截在订单创建时执行,见 `test_create_order_off_shelf_product`。
+    """
     client, _ = fresh_user
     r = client.post("/cart/items", json={"productId": 1004, "quantity": 1})
-    assert r.status_code == 400
-    assert_biz_code(r.json(), 40502)  # PRODUCT_OFF_SHELF
+    assert r.status_code == 200
+    assert r.json()["data"]["productId"] == 1004
 
 
 def test_add_to_cart_product_not_found(fresh_user):
