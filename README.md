@@ -23,21 +23,32 @@ AutoShop API/
 ├── app/
 │   ├── main.py              # FastAPI 入口
 │   ├── config.py            # 配置(含 MySQL 连接参数)
-│   ├── database.py          # SQLAlchemy engine / Session
+│   ├── database.py          # SQLAlchemy engine / Session（含 reset_db）
 │   ├── deps.py              # get_current_user 依赖
 │   ├── security.py          # JWT + bcrypt
 │   ├── response.py          # 标准响应信封
 │   ├── exceptions.py        # BizException + 统一处理
 │   ├── seed.py              # 种子数据
-│   ├── models/              # ORM 模型(Numeric 金额字段)
+│   ├── models/              # ORM 模型（无 FOREIGN KEY，仅业务逻辑关联）
 │   ├── schemas/             # Pydantic 模型
 │   ├── routers/             # 5 个路由模块
 │   └── services/            # 业务层
+├── scripts/                 # 数据库脚本（建表/重置/删除外键）
 ├── tests/                   # pytest 自动化测试
 ├── deploy/                  # 部署文件
 ├── requirements.txt
 └── README.md
 ```
+
+### 数据库设计说明
+
+**本项目不使用 MySQL FOREIGN KEY 外键约束。** 逻辑关联字段（user_id / product_id / order_id）由应用层业务代码保证数据完整性，各表均可独立 TRUNCATE / DELETE，互不干扰，适合接口自动化测试场景。
+
+| 数据库脚本 | 说明 |
+|---|---|
+| `scripts/schema.sql` | 完整建表 SQL（无外键，带中文注释） |
+| `scripts/reset_database.sql` | 测试前重置数据库（TRUNCATE + 种子数据） |
+| `scripts/remove_foreign_keys.sql` | 删除现有数据库中的所有外键约束 |
 
 ---
 

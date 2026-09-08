@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoShop API 数据库说明</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --sidebar-bg: #1e293b;
+      --sidebar-text: #cbd5e1;
+      --sidebar-active: #3b82f6;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --tag-table: #6366f1;
+      --tag-table-bg: #eef2ff;
+      --tag-key: #f59e0b;
+      --tag-key-bg: #fef3c7;
+      --tag-fk: #22c55e;
+      --tag-fk-bg: #dcfce7;
+      --card-bg: #ffffff;
+      --info-bg: #eff6ff;
+      --info-border: #3b82f6;
+      --warning-bg: #fffbeb;
+      --warning-border: #f59e0b;
+      --success-bg: #f0fdf4;
+      --success-border: #22c55e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    a { color: var(--sidebar-active); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .layout { display: flex; min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 260px; flex-shrink: 0;
+      background: var(--sidebar-bg); color: var(--sidebar-text);
+      position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto;
+      padding: 24px 0; z-index: 100;
+    }
+    .sidebar-logo { padding: 0 24px 20px; border-bottom: 1px solid #334155; margin-bottom: 20px; }
+    .sidebar-logo h1 { font-size: 18px; color: #f1f5f9; font-weight: 700; }
+    .sidebar-logo span { font-size: 12px; color: #94a3b8; }
+    .sidebar-section { margin-bottom: 8px; }
+    .sidebar-section-title { padding: 6px 24px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; font-weight: 600; margin-top: 12px; }
+    .sidebar-item { display: block; padding: 7px 24px; font-size: 13px; color: var(--sidebar-text); cursor: pointer; transition: all 0.15s; }
+    .sidebar-item:hover { background: #334155; color: #f1f5f9; text-decoration: none; }
+    .sidebar-item.active { color: #f1f5f9; background: #334155; border-left: 3px solid var(--sidebar-active); }
+
+    /* ── Main ── */
+    .main { margin-left: 260px; flex: 1; padding: 40px 48px; max-width: 1100px; }
+
+    .hero { margin-bottom: 48px; }
+    .hero-badge { display: inline-block; background: var(--tag-table-bg); color: var(--tag-table); font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; margin-bottom: 12px; }
+    .hero h1 { font-size: 36px; font-weight: 800; margin-bottom: 10px; }
+    .hero p { color: var(--text-muted); font-size: 16px; max-width: 640px; }
+
+    .section-divider { margin: 40px 0 8px; }
+    .section-divider h2 { font-size: 22px; }
+
+    /* ── Table Card ── */
+    .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 32px; overflow: hidden; }
+    .table-card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .table-card-header h3 { font-size: 18px; font-weight: 700; }
+    .table-badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px; }
+    .table-badge.table { background: var(--tag-table-bg); color: var(--tag-table); }
+    .table-badge.primary { background: #fef3c7; color: #92400e; }
+
+    .table-card-body { padding: 20px 24px; }
+
+    .info-box { background: var(--info-bg); border-left: 4px solid var(--info-border); padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 13px; margin: 12px 0; }
+    .warning-box { background: var(--warning-bg); border-left: 4px solid var(--warning-border); padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 13px; margin: 12px 0; }
+    .success-box { background: var(--success-bg); border-left: 4px solid var(--success-border); padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 13px; margin: 12px 0; }
+
+    /* ── Column Table ── */
+    .col-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    .col-table th { text-align: left; background: #f8fafc; padding: 8px 12px; border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .col-table td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+    .col-table td:nth-child(1) { font-family: 'Courier New', monospace; font-size: 12px; color: #6366f1; font-weight: 600; white-space: nowrap; }
+    .col-table td:nth-child(2) { font-size: 11px; color: var(--text-muted); font-family: 'Courier New', monospace; white-space: nowrap; }
+    .col-table td:nth-child(3) { font-size: 11px; color: var(--text-muted); text-align: center; }
+
+    .pk-tag { display: inline-block; background: var(--tag-key-bg); color: #92400e; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+    .fk-tag { display: inline-block; background: var(--tag-fk-bg); color: #166534; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+    .idx-tag { display: inline-block; background: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+    .uniq-tag { display: inline-block; background: #fce7f3; color: #9d174d; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+
+    /* ── SQL Code ── */
+    pre { background: var(--code-bg); color: var(--code-text); padding: 16px 20px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.5; white-space: pre; margin: 12px 0; }
+    pre .kw { color: #c084fc; font-weight: 600; }
+    pre .str { color: #86efac; }
+    pre .num { color: #fcd34d; }
+    pre .cmt { color: #64748b; font-style: italic; }
+    pre .fn { color: #93c5fd; }
+
+    /* ── ER Diagram ── */
+    .er-diagram { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center; }
+    .er-nodes { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }
+    .er-node { background: #f8fafc; border: 2px solid var(--border); border-radius: 8px; padding: 16px 20px; min-width: 180px; }
+    .er-node h4 { font-size: 14px; font-weight: 700; color: var(--tag-table); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .er-node p { font-size: 11px; color: var(--text-muted); margin: 4px 0; }
+    .er-line { color: var(--text-muted); font-size: 20px; display: flex; align-items: center; }
+    .er-arrows { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+    /* ── Seed Data ── */
+    .seed-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    .seed-table th { text-align: left; background: #f8fafc; padding: 8px 12px; border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
+    .seed-table td { padding: 8px 12px; border: 1px solid var(--border); }
+    .seed-table td:first-child { font-family: 'Courier New', monospace; font-size: 12px; color: #6366f1; }
+
+    /* ── Enum Table ── */
+    .enum-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
+    .enum-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+    .enum-card h4 { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .enum-item { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+    .enum-item:last-child { border-bottom: none; }
+    .enum-item code { font-family: 'Courier New', monospace; color: #6366f1; }
+    .enum-item span { color: var(--text-muted); }
+
+    .footer { text-align: center; color: var(--text-muted); font-size: 12px; padding: 40px 0 20px; border-top: 1px solid var(--border); margin-top: 60px; }
+
+    /* ── TOC ── */
+    .toc { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 40px; }
+    .toc h3 { font-size: 16px; margin-bottom: 12px; }
+    .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+    .toc-item { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .toc-item .icon { font-size: 16px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h1>AutoShop API</h1>
+      <span>Database v1.0</span>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">快速导航</div>
+      <a class="sidebar-item" href="#overview">概览</a>
+      <a class="sidebar-item" href="#er-diagram">ER 关系图</a>
+      <a class="sidebar-item" href="#enum-values">枚举值说明</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">数据表</div>
+      <a class="sidebar-item" href="#table-users">users</a>
+      <a class="sidebar-item" href="#table-products">products</a>
+      <a class="sidebar-item" href="#table-cart-items">cart_items</a>
+      <a class="sidebar-item" href="#table-orders">orders</a>
+      <a class="sidebar-item" href="#table-order-items">order_items</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">其他</div>
+      <a class="sidebar-item" href="#seed-data">种子数据</a>
+      <a class="sidebar-item" href="#sql-scripts">建表 SQL</a>
+    </div>
+  </nav>
+
+  <!-- ── Main Content ── -->
+  <main class="main">
+
+    <div class="hero">
+      <div class="hero-badge">MySQL 8.0</div>
+      <h1>AutoShop 数据库说明</h1>
+      <p>AutoShop API 使用 MySQL 8.0 作为数据存储，基于 SQLAlchemy 2.0 ORM 实现。数据库包含 5 张核心业务表，支持用户认证、商品管理、购物车和订单处理。</p>
+    </div>
+
+    <!-- ── 概览 ── -->
+    <div id="overview" style="margin-bottom:40px">
+      <h2 style="font-size:22px;margin-bottom:16px">数据库概览</h2>
+      <div class="toc">
+        <h3>5 张数据表一览</h3>
+        <div class="toc-grid">
+          <div class="toc-item"><span class="icon">👤</span> users（用户表）</div>
+          <div class="toc-item"><span class="icon">📦</span> products（商品表）</div>
+          <div class="toc-item"><span class="icon">🛒</span> cart_items（购物车）</div>
+          <div class="toc-item"><span class="icon">📋</span> orders（订单主表）</div>
+          <div class="toc-item"><span class="icon">📝</span> order_items（订单项）</div>
+        </div>
+      </div>
+      <div class="info-box">
+        <strong>技术栈：</strong>MySQL 8.0 + SQLAlchemy 2.0 + PyMySQL<br>
+        <strong>字符集：</strong>utf8mb4（支持完整 emoji 和多语言）<br>
+        <strong>排序规则：</strong>utf8mb4_unicode_ci
+      </div>
+    </div>
+
+    <!-- ── ER 关系图 ── -->
+    <div id="er-diagram" class="er-diagram">
+      <h3 style="margin-bottom:20px;font-size:16px;color:var(--text-muted)">实体关系图（ER Diagram）</h3>
+
+      <div class="info-box" style="background:#fffbeb;border-color:#f59e0b;margin-bottom:20px;text-align:center;font-size:13px">
+        <strong>⚠️ 重要说明：</strong>以下所有关联字段均为<strong>业务逻辑关联</strong>，MySQL 数据库层面<strong>未配置 FOREIGN KEY 约束</strong>。<br>
+        数据完整性由应用层业务代码和自动化测试保证，各表均可独立 TRUNCATE / DELETE，不会有外键约束报错。
+      </div>
+
+      <div class="er-nodes">
+        <div class="er-node">
+          <h4>users</h4>
+          <p>用户信息</p>
+          <p style="margin-top:8px;font-weight:600">id (PK)</p>
+          <p>username, email (UNIQUE)</p>
+        </div>
+        <div style="display:flex;align-items:center">
+          <div class="er-line">→</div>
+        </div>
+        <div class="er-node">
+          <h4>cart_items</h4>
+          <p>购物车项</p>
+          <p style="margin-top:8px;font-weight:600">id (PK)</p>
+          <p style="color:#6366f1">user_id（逻辑关联 users）</p>
+          <p style="color:#6366f1">product_id（逻辑关联 products）</p>
+          <p style="color:#9d174d">UNIQUE(user_id, product_id)</p>
+        </div>
+        <div style="display:flex;align-items:center">
+          <div class="er-line">→</div>
+        </div>
+        <div class="er-node">
+          <h4>orders</h4>
+          <p>订单主表</p>
+          <p style="margin-top:8px;font-weight:600">id (PK)</p>
+          <p style="color:#6366f1">user_id（逻辑关联 users）</p>
+          <p>order_no (UNIQUE)</p>
+        </div>
+        <div style="display:flex;align-items:center">
+          <div class="er-line">→</div>
+        </div>
+        <div class="er-node">
+          <h4>order_items</h4>
+          <p>订单明细</p>
+          <p style="margin-top:8px;font-weight:600">id (PK)</p>
+          <p style="color:#6366f1">order_id（逻辑关联 orders）</p>
+          <p style="color:#6366f1">product_id（逻辑关联 products）</p>
+        </div>
+      </div>
+      <div class="er-nodes" style="margin-top:20px">
+        <div class="er-node">
+          <h4>products</h4>
+          <p>商品表（独立）</p>
+          <p style="margin-top:8px;font-weight:600">id (PK)</p>
+          <p>无外键依赖</p>
+        </div>
+      </div>
+      <div style="margin-top:16px;font-size:12px;color:var(--text-muted)">
+        <span class="pk-tag">PK</span> 主键 &nbsp;
+        <span style="display:inline-block;background:#e0f2fe;color:#075985;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px">逻辑关联</span> 业务层关联（非数据库外键）&nbsp;
+        <span class="uniq-tag">UNIQUE</span> 唯一约束
+      </div>
+    </div>
+
+    <!-- ── 枚举值说明 ── -->
+    <div id="enum-values" class="section-divider">
+      <h2>枚举值说明</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <h3>商品状态 / 订单状态 / 支付状态</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="enum-grid">
+          <div class="enum-card">
+            <h4>商品状态 (products.status)</h4>
+            <div class="enum-item"><code>ON_SALE</code><span>在售</span></div>
+            <div class="enum-item"><code>OFF_SHELF</code><span>已下架</span></div>
+          </div>
+          <div class="enum-card">
+            <h4>订单状态 (orders.order_status)</h4>
+            <div class="enum-item"><code>PAID</code><span>已支付</span></div>
+            <div class="enum-item"><code>PAY_FAILED</code><span>支付失败</span></div>
+            <div class="enum-item"><code>PENDING_PAYMENT</code><span>待支付</span></div>
+          </div>
+          <div class="enum-card">
+            <h4>支付状态 (orders.payment_status)</h4>
+            <div class="enum-item"><code>MOCK_SUCCESS</code><span>Mock 成功</span></div>
+            <div class="enum-item"><code>MOCK_FAILED</code><span>Mock 失败</span></div>
+            <div class="enum-item"><code>MOCK_PENDING</code><span>Mock 待处理</span></div>
+          </div>
+        </div>
+        <div class="warning-box" style="margin-top:16px">
+          <strong>Mock 机制：</strong>通过 <code>POST /orders</code> 的 <code>mockResult</code> 参数（SUCCESS / FAIL / PENDING）控制支付结果，用于接口测试模拟不同场景。
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  users 表                                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="table-users" class="section-divider">
+      <h2>users 用户表</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <span class="table-badge table">TABLE</span>
+        <h3>users</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="info-box">存储用户账户信息，密码以 bcrypt 哈希存储。username 和 email 全局唯一。</div>
+        <table class="col-table">
+          <thead>
+            <tr>
+              <th>字段名</th>
+              <th>类型</th>
+              <th>约束</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td>INT</td>
+              <td><span class="pk-tag">PK</span> AUTO_INCREMENT</td>
+              <td>用户 ID，自增主键</td>
+            </tr>
+            <tr>
+              <td>username</td>
+              <td>VARCHAR(20)</td>
+              <td><span class="uniq-tag">UNIQUE</span> <span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>登录用户名，4~20 位字母/数字/下划线</td>
+            </tr>
+            <tr>
+              <td>password_hash</td>
+              <td>VARCHAR(128)</td>
+              <td>NOT NULL</td>
+              <td>bcrypt 哈希后的密码</td>
+            </tr>
+            <tr>
+              <td>email</td>
+              <td>VARCHAR(120)</td>
+              <td><span class="uniq-tag">UNIQUE</span> <span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>邮箱，全局唯一</td>
+            </tr>
+            <tr>
+              <td>phone</td>
+              <td>VARCHAR(20)</td>
+              <td>NULL</td>
+              <td>手机号，可选，11 位（1[3-9]开头）</td>
+            </tr>
+            <tr>
+              <td>nickname</td>
+              <td>VARCHAR(50)</td>
+              <td>NULL</td>
+              <td>昵称，可选</td>
+            </tr>
+            <tr>
+              <td>created_at</td>
+              <td>DATETIME</td>
+              <td>NOT NULL DEFAULT CURRENT_TIMESTAMP</td>
+              <td>注册时间，UTC 时区</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="success-box">
+          <strong>索引说明：</strong>username 和 email 建立唯一索引，支持快速查找和注册时的唯一性校验。
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  products 表                                -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="table-products" class="section-divider">
+      <h2>products 商品表</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <span class="table-badge table">TABLE</span>
+        <h3>products</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="info-box">存储商品信息。金额字段使用 <code>DECIMAL(10,2)</code> 确保精度。status 控制上下架，stock 控制库存。</div>
+        <table class="col-table">
+          <thead>
+            <tr>
+              <th>字段名</th>
+              <th>类型</th>
+              <th>约束</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td>INT</td>
+              <td><span class="pk-tag">PK</span> AUTO_INCREMENT</td>
+              <td>商品 ID，自增主键</td>
+            </tr>
+            <tr>
+              <td>name</td>
+              <td>VARCHAR(100)</td>
+              <td>NOT NULL</td>
+              <td>商品名称</td>
+            </tr>
+            <tr>
+              <td>description</td>
+              <td>VARCHAR(500)</td>
+              <td>NULL DEFAULT 'AutoShop Test Product'</td>
+              <td>商品描述</td>
+            </tr>
+            <tr>
+              <td>category</td>
+              <td>VARCHAR(50)</td>
+              <td><span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>商品分类，如 phone/laptop/earphones</td>
+            </tr>
+            <tr>
+              <td>price</td>
+              <td>DECIMAL(10,2)</td>
+              <td>NOT NULL</td>
+              <td>单价（元），最高 99999999.99</td>
+            </tr>
+            <tr>
+              <td>stock</td>
+              <td>INT</td>
+              <td>NOT NULL DEFAULT 0</td>
+              <td>库存数量，下单时扣减</td>
+            </tr>
+            <tr>
+              <td>status</td>
+              <td>VARCHAR(20)</td>
+              <td>NOT NULL DEFAULT 'ON_SALE'</td>
+              <td>ON_SALE（在售）/ OFF_SHELF（下架）</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="warning-box">
+          <strong>金额精度：</strong>使用 <code>DECIMAL(10,2)</code> 而非 <code>FLOAT</code> 或 <code>DOUBLE</code>，避免浮点数精度问题。
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  cart_items 表                             -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="table-cart-items" class="section-divider">
+      <h2>cart_items 购物车明细表</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <span class="table-badge table">TABLE</span>
+        <h3>cart_items</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="info-box">存储用户的购物车项。同用户同商品唯一（UNIQUE user_id + product_id），重复添加时更新数量。<strong>注意：本表无 FOREIGN KEY 约束，user_id / product_id 为逻辑关联字段，数据完整性由业务代码保证。</strong></div>
+        <table class="col-table">
+          <thead>
+            <tr>
+              <th>字段名</th>
+              <th>类型</th>
+              <th>约束</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td>INT</td>
+              <td><span class="pk-tag">PK</span> AUTO_INCREMENT</td>
+              <td>购物车项ID</td>
+            </tr>
+            <tr>
+              <td>user_id</td>
+              <td>INT</td>
+              <td><span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>用户ID，逻辑关联 users.id（无 FOREIGN KEY）</td>
+            </tr>
+            <tr>
+              <td>product_id</td>
+              <td>INT</td>
+              <td>NOT NULL</td>
+              <td>商品ID，逻辑关联 products.id（无 FOREIGN KEY）</td>
+            </tr>
+            <tr>
+              <td>quantity</td>
+              <td>INT</td>
+              <td>NOT NULL DEFAULT 1</td>
+              <td>商品数量</td>
+            </tr>
+            <tr>
+              <td>unit_price</td>
+              <td>DECIMAL(10,2)</td>
+              <td>NOT NULL</td>
+              <td>加入购物车时商品单价快照</td>
+            </tr>
+            <tr>
+              <td>created_at</td>
+              <td>DATETIME</td>
+              <td>DEFAULT CURRENT_TIMESTAMP</td>
+              <td>加入购物车时间</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="success-box">
+          <strong>唯一约束：</strong>UNIQUE(user_id, product_id) 确保同一用户对同一商品只有一条购物车记录。
+        </div>
+        <div class="warning-box">
+          <strong>快照机制：</strong>unit_price 存储下单时的商品单价，即使商品后续降价/涨价，订单金额也不受影响。
+        </div>
+        <div class="info-box">
+          <strong>无外键说明：</strong>user_id / product_id 仅为逻辑关联字段，MySQL 数据库不配置 FOREIGN KEY，可独立 TRUNCATE / DELETE 本表，不受其他表数据影响。
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  orders 表                                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="table-orders" class="section-divider">
+      <h2>orders 订单主表</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <span class="table-badge table">TABLE</span>
+        <h3>orders</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="info-box">订单主表，存储订单概要信息。receiver 以 JSON 格式存储收货人信息（name/phone/address）。<strong>注意：user_id 为逻辑关联字段，MySQL 不配置 FOREIGN KEY。</strong></div>
+        <table class="col-table">
+          <thead>
+            <tr>
+              <th>字段名</th>
+              <th>类型</th>
+              <th>约束</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td>INT</td>
+              <td><span class="pk-tag">PK</span> AUTO_INCREMENT</td>
+              <td>订单ID</td>
+            </tr>
+            <tr>
+              <td>order_no</td>
+              <td>VARCHAR(32)</td>
+              <td><span class="uniq-tag">UNIQUE</span> <span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>订单编号</td>
+            </tr>
+            <tr>
+              <td>user_id</td>
+              <td>INT</td>
+              <td><span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>用户ID，逻辑关联 users.id（无 FOREIGN KEY）</td>
+            </tr>
+            <tr>
+              <td>total_amount</td>
+              <td>DECIMAL(10,2)</td>
+              <td>NOT NULL</td>
+              <td>订单总金额（所有商品小计之和）</td>
+            </tr>
+            <tr>
+              <td>order_status</td>
+              <td>VARCHAR(32)</td>
+              <td>NOT NULL</td>
+              <td>PAID / PAY_FAILED / PENDING_PAYMENT</td>
+            </tr>
+            <tr>
+              <td>payment_status</td>
+              <td>VARCHAR(32)</td>
+              <td>NOT NULL</td>
+              <td>MOCK_SUCCESS / MOCK_FAILED / MOCK_PENDING</td>
+            </tr>
+            <tr>
+              <td>receiver</td>
+              <td>JSON</td>
+              <td>NOT NULL</td>
+              <td>收货人信息JSON（name, phone, address）</td>
+            </tr>
+            <tr>
+              <td>remark</td>
+              <td>VARCHAR(200)</td>
+              <td>NULL</td>
+              <td>订单备注</td>
+            </tr>
+            <tr>
+              <td>created_at</td>
+              <td>DATETIME</td>
+              <td>NOT NULL DEFAULT CURRENT_TIMESTAMP</td>
+              <td>下单时间</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="info-box">
+          <strong>JSON 字段：</strong>receiver 存储为 JSON 格式，可直接通过 <code>JSON_EXTRACT(receiver, '$.phone')</code> 查询收货人手机号。
+        </div>
+        <div class="info-box">
+          <strong>无外键说明：</strong>user_id 仅为逻辑关联字段，MySQL 数据库不配置 FOREIGN KEY，可独立 TRUNCATE / DELETE 本表，不受其他表数据影响。
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  order_items 表                            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="table-order-items" class="section-divider">
+      <h2>order_items 订单商品明细表</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <span class="table-badge table">TABLE</span>
+        <h3>order_items</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="info-box">订单明细表，存储每个订单包含的商品快照。下单时记录商品名称和单价，与商品表解耦。<strong>注意：order_id / product_id 为逻辑关联字段，MySQL 不配置 FOREIGN KEY。</strong></div>
+        <table class="col-table">
+          <thead>
+            <tr>
+              <th>字段名</th>
+              <th>类型</th>
+              <th>约束</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td>INT</td>
+              <td><span class="pk-tag">PK</span> AUTO_INCREMENT</td>
+              <td>订单项ID</td>
+            </tr>
+            <tr>
+              <td>order_id</td>
+              <td>INT</td>
+              <td><span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>订单ID，逻辑关联 orders.id（无 FOREIGN KEY）</td>
+            </tr>
+            <tr>
+              <td>product_id</td>
+              <td>INT</td>
+              <td>NOT NULL</td>
+              <td>商品ID，逻辑关联 products.id（无 FOREIGN KEY）</td>
+            </tr>
+            <tr>
+              <td>product_name</td>
+              <td>VARCHAR(100)</td>
+              <td>NOT NULL</td>
+              <td>下单时商品名称快照</td>
+            </tr>
+            <tr>
+              <td>quantity</td>
+              <td>INT</td>
+              <td>NOT NULL</td>
+              <td>购买数量</td>
+            </tr>
+            <tr>
+              <td>unit_price</td>
+              <td>DECIMAL(10,2)</td>
+              <td>NOT NULL</td>
+              <td>下单时商品单价快照</td>
+            </tr>
+            <tr>
+              <td>amount</td>
+              <td>DECIMAL(10,2)</td>
+              <td>NOT NULL</td>
+              <td>商品小计（unit_price × quantity）</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="success-box">
+          <strong>快照机制：</strong>product_name 和 unit_price 在下单时从商品表复制，商品后续变更不影响历史订单。
+        </div>
+        <div class="info-box">
+          <strong>无外键说明：</strong>order_id / product_id 仅为逻辑关联字段，MySQL 数据库不配置 FOREIGN KEY，可独立 TRUNCATE / DELETE 本表，不受其他表数据影响。
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  种子数据                                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="seed-data" class="section-divider">
+      <h2>种子数据</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <span class="table-badge primary">SEED DATA</span>
+        <h3>商品种子数据（自动初始化）</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="info-box">首次启动时自动插入，覆盖 4 种商品场景用于测试。</div>
+        <table class="seed-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>名称</th>
+              <th>描述</th>
+              <th>分类</th>
+              <th>价格</th>
+              <th>库存</th>
+              <th>状态</th>
+              <th>测试场景</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1001</td>
+              <td>iPhone 17</td>
+              <td>最新款 iPhone</td>
+              <td>phone</td>
+              <td>5999.00</td>
+              <td>100</td>
+              <td>ON_SALE</td>
+              <td>✅ 正常商品</td>
+            </tr>
+            <tr>
+              <td>1002</td>
+              <td>MacBook Air</td>
+              <td>轻薄笔记本电脑</td>
+              <td>laptop</td>
+              <td>7999.00</td>
+              <td>50</td>
+              <td>ON_SALE</td>
+              <td>✅ 正常商品</td>
+            </tr>
+            <tr>
+              <td>1003</td>
+              <td>AirPods</td>
+              <td>无线蓝牙耳机</td>
+              <td>earphones</td>
+              <td>999.00</td>
+              <td>0</td>
+              <td>ON_SALE</td>
+              <td>⚠️ 库存不足</td>
+            </tr>
+            <tr>
+              <td>1004</td>
+              <td>Test Offline Product</td>
+              <td>测试用下架商品</td>
+              <td>test</td>
+              <td>100.00</td>
+              <td>10</td>
+              <td>OFF_SHELF</td>
+              <td>🚫 商品下架</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="success-box" style="margin-top:16px">
+          <strong>Demo 用户：</strong>username: <code>demo</code>，password: <code>Demo@123456</code>（仅本地调试）
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  建表 SQL                                   -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="sql-scripts" class="section-divider">
+      <h2>建表 SQL</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <h3>MySQL 建表脚本（无外键版）</h3>
+      </div>
+      <div class="table-card-body">
+        <div class="info-box">
+          <strong>注意：</strong>本页面 SQL 示例已更新为无外键版本。完整建表脚本请参考 <code>scripts/schema.sql</code>。
+          实际执行由 <code>app/database.py</code> 中的 <code>Base.metadata.create_all()</code> 完成（无 FOREIGN KEY）。
+        </div>
+        <div class="warning-box" style="margin-bottom:20px">
+          <strong>逻辑关联说明：</strong>user_id / product_id / order_id 字段仅为业务层关联，MySQL 数据库层面<strong>不配置任何 FOREIGN KEY</strong>。
+          所有表均可独立 TRUNCATE / DELETE，数据完整性由业务代码保证。
+        </div>
+
+        <h4 style="margin:16px 0 8px;font-size:14px">CREATE DATABASE</h4>
+<pre><span class="cmt">-- 创建数据库（utf8mb4 支持完整 emoji）</span>
+<span class="kw">CREATE DATABASE</span> IF NOT EXISTS autoshop
+  <span class="kw">DEFAULT CHARACTER SET</span> utf8mb4
+  <span class="kw">COLLATE</span> utf8mb4_unicode_ci;</pre>
+
+        <h4 style="margin:16px 0 8px;font-size:14px">users（用户表）</h4>
+<pre><span class="kw">CREATE TABLE</span> users (
+  id             INT           NOT NULL AUTO_INCREMENT COMMENT <span class="str">'用户ID'</span>,
+  username       VARCHAR(20)   NOT NULL                COMMENT <span class="str">'登录用户名'</span>,
+  password_hash  VARCHAR(128)  NOT NULL                COMMENT <span class="str">'登录密码哈希值'</span>,
+  email          VARCHAR(120)  NOT NULL                COMMENT <span class="str">'用户邮箱'</span>,
+  phone          VARCHAR(20)   DEFAULT NULL            COMMENT <span class="str">'手机号'</span>,
+  nickname       VARCHAR(50)   DEFAULT NULL            COMMENT <span class="str">'用户昵称'</span>,
+  created_at     DATETIME      NOT NULL                COMMENT <span class="str">'创建时间'</span>,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_username (username),
+  UNIQUE KEY uq_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT=<span class="str">'用户表'</span>;</pre>
+
+        <h4 style="margin:16px 0 8px;font-size:14px">products（商品表）</h4>
+<pre><span class="kw">CREATE TABLE</span> products (
+  id          INT            NOT NULL AUTO_INCREMENT COMMENT <span class="str">'商品ID'</span>,
+  name        VARCHAR(100)  NOT NULL                COMMENT <span class="str">'商品名称'</span>,
+  description VARCHAR(500)  DEFAULT <span class="str">'AutoShop Test Product'</span> COMMENT <span class="str">'商品描述'</span>,
+  category    VARCHAR(50)   NOT NULL                COMMENT <span class="str">'商品分类'</span>,
+  price       DECIMAL(10,2) NOT NULL                COMMENT <span class="str">'商品单价'</span>,
+  stock       INT           NOT NULL DEFAULT 0      COMMENT <span class="str">'当前库存数量'</span>,
+  status      VARCHAR(20)   NOT NULL DEFAULT <span class="str">'ON_SALE'</span>
+               COMMENT <span class="str">'商品状态（ON_SALE 在售 / OFF_SHELF 下架）'</span>,
+  PRIMARY KEY (id),
+  INDEX ix_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT=<span class="str">'商品表'</span>;</pre>
+
+        <h4 style="margin:16px 0 8px;font-size:14px">cart_items（购物车明细表，无外键）</h4>
+<pre><span class="kw">CREATE TABLE</span> cart_items (
+  id          INT            NOT NULL AUTO_INCREMENT COMMENT <span class="str">'购物车项ID'</span>,
+  user_id     INT            NOT NULL                COMMENT <span class="str">'用户ID，逻辑关联 users.id'</span>,
+  product_id  INT            NOT NULL                COMMENT <span class="str">'商品ID，逻辑关联 products.id'</span>,
+  quantity    INT            NOT NULL DEFAULT 1      COMMENT <span class="str">'商品数量'</span>,
+  unit_price  DECIMAL(10,2) NOT NULL                COMMENT <span class="str">'加入购物车时商品单价快照'</span>,
+  created_at  DATETIME       DEFAULT NULL            COMMENT <span class="str">'加入购物车时间'</span>,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_product (user_id, product_id),
+  INDEX ix_cart_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT=<span class="str">'购物车明细表'</span>;</pre>
+
+        <h4 style="margin:16px 0 8px;font-size:14px">orders（订单主表，无外键）</h4>
+<pre><span class="kw">CREATE TABLE</span> orders (
+  id              INT            NOT NULL AUTO_INCREMENT COMMENT <span class="str">'订单ID'</span>,
+  order_no        VARCHAR(32)    NOT NULL                COMMENT <span class="str">'订单编号'</span>,
+  user_id         INT            NOT NULL                COMMENT <span class="str">'用户ID，逻辑关联 users.id'</span>,
+  total_amount    DECIMAL(10,2) NOT NULL                COMMENT <span class="str">'订单总金额'</span>,
+  order_status    VARCHAR(32)    NOT NULL                COMMENT <span class="str">'订单状态（PAID / PAY_FAILED / PENDING_PAYMENT）'</span>,
+  payment_status  VARCHAR(32)    NOT NULL                COMMENT <span class="str">'Mock支付状态（MOCK_SUCCESS / MOCK_FAILED / MOCK_PENDING）'</span>,
+  receiver        JSON           NOT NULL                COMMENT <span class="str">'收货人信息JSON'</span>,
+  remark          VARCHAR(200)   DEFAULT NULL            COMMENT <span class="str">'订单备注'</span>,
+  created_at      DATETIME       NOT NULL                COMMENT <span class="str">'下单时间'</span>,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_order_no (order_no),
+  INDEX ix_orders_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT=<span class="str">'订单主表'</span>;</pre>
+
+        <h4 style="margin:16px 0 8px;font-size:14px">order_items（订单商品明细表，无外键）</h4>
+<pre><span class="kw">CREATE TABLE</span> order_items (
+  id           INT            NOT NULL AUTO_INCREMENT COMMENT <span class="str">'订单项ID'</span>,
+  order_id     INT            NOT NULL                COMMENT <span class="str">'订单ID，逻辑关联 orders.id'</span>,
+  product_id   INT            NOT NULL                COMMENT <span class="str">'商品ID，逻辑关联 products.id'</span>,
+  product_name VARCHAR(100)   NOT NULL                COMMENT <span class="str">'下单时商品名称快照'</span>,
+  quantity     INT            NOT NULL                COMMENT <span class="str">'购买数量'</span>,
+  unit_price   DECIMAL(10,2) NOT NULL                COMMENT <span class="str">'下单时商品单价快照'</span>,
+  amount       DECIMAL(10,2) NOT NULL                COMMENT <span class="str">'商品小计'</span>,
+  PRIMARY KEY (id),
+  INDEX ix_order_items_order_id (order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT=<span class="str">'订单商品明细表'</span>;</pre>
+      </div>
+    </div>
+
+    <!-- ── 索引汇总 ── -->
+    <div class="section-divider">
+      <h2>索引汇总</h2>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <h3>所有索引一览</h3>
+      </div>
+      <div class="table-card-body">
+        <table class="col-table">
+          <thead>
+            <tr>
+              <th>表名</th>
+              <th>索引名</th>
+              <th>类型</th>
+              <th>字段</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>users</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
+            <tr><td>users</td><td>uq_username</td><td><span class="uniq-tag">UNIQUE</span></td><td>username</td><td>唯一索引</td></tr>
+            <tr><td>users</td><td>uq_email</td><td><span class="uniq-tag">UNIQUE</span></td><td>email</td><td>唯一索引</td></tr>
+            <tr><td>products</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
+            <tr><td>products</td><td>ix_category</td><td><span class="idx-tag">INDEX</span></td><td>category</td><td>分类查询加速</td></tr>
+            <tr><td>cart_items</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
+            <tr><td>cart_items</td><td>uq_user_product</td><td><span class="uniq-tag">UNIQUE</span></td><td>user_id + product_id</td><td>复合唯一</td></tr>
+            <tr><td>cart_items</td><td>ix_user_id</td><td><span class="idx-tag">INDEX</span></td><td>user_id</td><td>用户购物车查询</td></tr>
+            <tr><td>orders</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
+            <tr><td>orders</td><td>uq_order_no</td><td><span class="uniq-tag">UNIQUE</span></td><td>order_no</td><td>订单号唯一</td></tr>
+            <tr><td>orders</td><td>ix_user_id</td><td><span class="idx-tag">INDEX</span></td><td>user_id</td><td>用户订单查询</td></tr>
+            <tr><td>order_items</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
+            <tr><td>order_items</td><td>ix_order_id</td><td><span class="idx-tag">INDEX</span></td><td>order_id</td><td>订单明细查询</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      AutoShop API v1.0.0 &nbsp;·&nbsp; MySQL 8.0 &nbsp;·&nbsp; SQLAlchemy 2.0 &nbsp;·&nbsp; Powered by AutoShop Team<br>
+      文档生成于 2026-09-07
+    </div>
+  </main>
+</div>
+</body>
+</html>

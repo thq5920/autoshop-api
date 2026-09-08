@@ -1,5 +1,7 @@
 """种子数据:商品 + demo 用户"""
-from app.database import SessionLocal
+import sys
+
+from app.database import SessionLocal, init_db, reset_db
 from app.models.product import Product
 from app.models.user import User
 from app.security import hash_password
@@ -8,8 +10,8 @@ from app.security import hash_password
 PRODUCTS = [
     dict(id=1001, name="iPhone 17",            category="phone",    price=5999.00, stock=100, status="ON_SALE"),
     dict(id=1002, name="MacBook Air",          category="computer", price=7999.00, stock=50,  status="ON_SALE"),
-    dict(id=1003, name="AirPods",              category="audio",    price=999.00,  stock=0,   status="ON_SALE"),
-    dict(id=1004, name="Test Offline Product", category="test",     price=100.00,  stock=10,  status="OFF_SHELF"),
+    dict(id=1003, name="AirPods",              category="audio",   price=999.00,  stock=0,   status="ON_SALE"),
+    dict(id=1004, name="Test Offline Product", category="test",     price=100.00, stock=10,  status="OFF_SHELF"),
 ]
 
 
@@ -36,8 +38,16 @@ def seed_if_empty():
         db.close()
 
 
-if __name__ == "__main__":
-    from app.database import init_db
-    init_db()
+def seed_full():
+    """一次性重置（无外键） + 建表 + 灌种子"""
+    reset_db()
     seed_if_empty()
+
+
+if __name__ == "__main__":
+    if "--reset" in sys.argv:
+        seed_full()
+    else:
+        init_db()
+        seed_if_empty()
     print("Seed done.")
