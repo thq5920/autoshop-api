@@ -41,8 +41,6 @@ class Order(Base):
     )
     receiver = Column(JSON, nullable=False, comment="收货人信息JSON")
     remark = Column(String(200), nullable=True, comment="订单备注")
-    # 修复:Order 模型此前没有 created_at 默认值,导致 INSERT 时违反 NOT NULL 约束。
-    # 这里与服务层保持 UTC(naive),与 `users.created_at` 的 default 风格一致。
     created_at = Column(
         DateTime,
         nullable=False,
@@ -56,6 +54,7 @@ class OrderItem(Base):
     __tablename__ = "order_items"
     __table_args__ = (
         Index("ix_order_items_order_id", "order_id"),
+        Index("ix_order_items_product_id", "product_id"),
         {"mysql_comment": "订单商品明细表"},
     )
 

@@ -33,17 +33,26 @@ class Settings:
         "autoshop-dev-secret-key-please-change-in-production-environment",
     )
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 文档示例 expiresIn: 7200 秒 = 2h
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
 
-    # bcrypt rounds (越低越快,测试场景可调到 4)
+    # bcrypt rounds
     BCRYPT_ROUNDS: int = int(os.getenv("BCRYPT_ROUNDS", "4"))
 
     # 环境
-    ENV: str = os.getenv("AUTOSHOP_ENV", "dev")
+    @property
+    def ENV(self) -> str:
+        return os.getenv("AUTOSHOP_ENV", "dev")
+
     DEBUG: bool = os.getenv("AUTOSHOP_DEBUG", "true").lower() == "true"
 
-    # 是否对外暴露登录失败的具体原因(账号不存在 / 密码错误)
-    # 测试场景默认开启以便断言具体码值;生产(prod)建议关闭以防账号枚举
+    # 测试接口守门：ENV=test 且 ENABLE_TEST_API=true 才挂载 /_test/* 路由
+    @property
+    def ENABLE_TEST_API(self) -> bool:
+        return (
+            self.ENV.lower() == "test"
+            and os.getenv("AUTOSHOP_ENABLE_TEST_API", "false").lower() == "true"
+        )
+
     EXPOSE_AUTH_DETAIL: bool = os.getenv(
         "AUTOSHOP_EXPOSE_AUTH_DETAIL", "true"
     ).lower() == "true"

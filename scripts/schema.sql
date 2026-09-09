@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS `cart_items` (
   `created_at`  DATETIME       DEFAULT NULL                  COMMENT '加入购物车时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_user_product` (`user_id`, `product_id`),
-  INDEX `ix_cart_user_id` (`user_id`)
+  INDEX `ix_cart_user_id` (`user_id`),
+  INDEX `ix_cart_product_id` (`product_id`)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
@@ -111,7 +112,8 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   `unit_price`   DECIMAL(10,2) NOT NULL                      COMMENT '下单时商品单价快照',
   `amount`       DECIMAL(10,2) NOT NULL                      COMMENT '商品小计',
   PRIMARY KEY (`id`),
-  INDEX `ix_order_items_order_id` (`order_id`)
+  INDEX `ix_order_items_order_id` (`order_id`),
+  INDEX `ix_order_items_product_id` (`product_id`)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci

@@ -1,14 +1,9 @@
 -- =============================================================================
--- mock_data.sql
--- 功能：AutoShop 完整拟真测试数据（每表100条）
--- 
--- 使用方法：
---   mysql -u 用户名 -p autoshop < scripts/mock_data.sql
---
--- 可重复执行：每次执行前会先清空所有表数据，再重新插入
+-- scripts/mock_data.sql
+-- 职责:仅"测试数据"。
+--       TRUNCATE 5张表 -> INSERT 100×5条数据 -> SELECT 数据完整性检查。
+--       不建表、不操作外键检查开关。
 -- =============================================================================
-
-SET FOREIGN_KEY_CHECKS = 0;
 
 -- 清空现有数据（按依赖关系逆序）
 TRUNCATE TABLE order_items;
@@ -16,8 +11,6 @@ TRUNCATE TABLE orders;
 TRUNCATE TABLE cart_items;
 TRUNCATE TABLE products;
 TRUNCATE TABLE users;
-
-SET FOREIGN_KEY_CHECKS = 1;
 
 -- =============================================================================
 -- 一、users 用户表（100条）
@@ -133,8 +126,8 @@ INSERT INTO users (id, username, password_hash, email, phone, nickname, created_
 INSERT INTO products (id, name, description, category, price, stock, status) VALUES
 (1001, 'iPhone 17', 'Apple latest flagship smartphone with A19 chip', 'phone', 5999.00, 120, 'ON_SALE'),
 (1002, 'iPhone 17 Pro', 'Apple Pro flagship with titanium design', 'phone', 7999.00, 86, 'ON_SALE'),
-(1003, 'iPhone 17 Pro Max', 'Apple largest flagship with best camera', 'phone', 9999.00, 50, 'ON_SALE'),
-(1004, 'Samsung Galaxy S26', 'Samsung flagship with AI features', 'phone', 5499.00, 95, 'ON_SALE'),
+(1003, 'iPhone 17 Pro Max', 'Apple largest flagship with best camera', 'phone', 9999.00, 0, 'ON_SALE'),
+(1004, 'Samsung Galaxy S26', 'Samsung flagship with AI features', 'phone', 5499.00, 10, 'OFF_SHELF'),
 (1005, 'Samsung Galaxy S26 Ultra', 'Samsung premium flagship with S Pen', 'phone', 8999.00, 45, 'ON_SALE'),
 (1006, 'Google Pixel 11', 'Google pure Android experience', 'phone', 4299.00, 68, 'ON_SALE'),
 (1007, 'Google Pixel 11 Pro', 'Google Pro with advanced AI camera', 'phone', 6499.00, 32, 'ON_SALE'),

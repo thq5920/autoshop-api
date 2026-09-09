@@ -22,19 +22,28 @@
 AutoShop API/
 ├── app/
 │   ├── main.py              # FastAPI 入口
-│   ├── config.py            # 配置(含 MySQL 连接参数)
-│   ├── database.py          # SQLAlchemy engine / Session（含 init_db / clear_test_data）
+│   ├── config.py            # 配置（含 MySQL 连接、ENV、ENABLE_TEST_API）
+│   ├── database.py          # SQLAlchemy engine / Session（仅 init_db）
 │   ├── deps.py              # get_current_user 依赖
 │   ├── security.py          # JWT + bcrypt
 │   ├── response.py          # 标准响应信封
 │   ├── exceptions.py        # BizException + 统一处理
-│   ├── seed.py              # 种子数据（seed_db / clear_test_data / seed_test_data / reset_test_data）
+│   ├── seed.py              # 种子数据（仅 seed_db，供 prod/dev 启动时补充）
+│   ├── test_data.py         # 测试环境唯一数据重置入口 reset_test_data()
 │   ├── models/              # ORM 模型（无 FOREIGN KEY，仅业务逻辑关联）
 │   ├── schemas/             # Pydantic 模型
-│   ├── routers/             # 5 个路由模块
+│   ├── routers/             # 5 个业务路由 + internal.py 测试路由
 │   └── services/            # 业务层
-├── scripts/                 # 数据库脚本（建表/重置/删除外键）
-├── tests/                   # pytest 自动化测试
+├── scripts/
+│   ├── schema.sql           # 表结构（无 FK）
+│   ├── mock_data.sql        # 测试数据（TRUNCATE + INSERT 100×5 + 检查）
+│   └── migrate_database.py  # 一次性迁移：删除旧 FK + 补齐逻辑 FK 索引
+├── tests/                   # pytest 业务接口测试
+├── api_tests/               # 数据库不变量测试 + 通用工具
+│   ├── common/db_manager.py
+│   ├── data/test_cases.xlsx # 5 Sheet (auth/users/products/cart/orders)
+│   ├── conftest.py
+│   └── test_database_schema.py
 ├── deploy/                  # 部署文件
 ├── requirements.txt
 └── README.md
@@ -46,10 +55,11 @@ AutoShop API/
 
 | 数据库脚本 | 说明 |
 |---|---|
-| `scripts/schema.sql` | 完整建表 SQL（无外键，带中文注释） |
-| `scripts/remove_foreign_keys.sql` | 删除现有数据库中的所有外键约束 |
+| `scripts/schema.sql` | 完整建表 SQL（无外键，带中文注释，含 5 个逻辑关联字段的普通索引） |
+| `scripts/mock_data.sql` | 测试数据（TRUNCATE 5 表 + INSERT 100×5 + 数据完整性 SELECT 检查），`mysql ... < scripts/mock_data.sql` 可直接执行 |
+| `scripts/migrate_database.py` | 一次性迁移：发现并删除所有历史物理 FK + 补齐逻辑关联字段的普通索引；可重复执行 |
 
-> ℹ️ 已移除 `scripts/reset_database.sql`：测试环境的数据重置统一通过 `POST /api/v1/_test/reset` 接口（DEBUG=true 时启用）完成，底层由 `app.seed.reset_test_data()` 实现 —— 即 `clear_test_data()` (TRUNCATE) + `seed_test_data()`，并使用 Python `hash_password()` 实时生成 demo 用户的真实 bcrypt 哈希，杜绝 SQL 占位 hash。
+> ℹ️ 测试环境的数据重置统一通过 `POST /api/v1/_test/reset` 接口，底层唯一实现位于 `app/test_data.reset_test_data()`，该接口仅在 `AUTOSHOP_ENV=test` 且 `AUTOSHOP_ENABLE_TEST_API=true` 两个条件都满足时挂载。
 
 ---
 
@@ -114,7 +124,22 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 3. 启动(首次启动自动建表并插入种子数据)
+# 3. 首次启动数据库初始化（也可在 docker / 云上 MySQL 跑一次）
+mysql -u autoshop -p autoshop < scripts/schema.sql        # 按 Model 建表（无 FK）
+# 仅在已有历史数据库(带 FK)上首次接入时执行以下迁移，幂等
+python scripts/migrate_database.py
+#   === Phase 1: Remove Foreign Keys ===
+#   Removed foreign keys: 5
+#   Remaining foreign keys: 0
+#   === Phase 2: Ensure Logic FK Indexes ===
+#   ix_cart_user_id ... OK
+#   ix_cart_product_id ... OK
+#   ix_orders_user_id ... OK
+#   ix_order_items_order_id ... OK
+#   ix_order_items_product_id ... OK
+#   === Migration Complete ===
+
+# 4. 启动
 uvicorn app.main:app --reload --port 8000
 # 或生产模式
 gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 2 -b 127.0.0.1:8000
@@ -125,6 +150,25 @@ gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 2 -b 127.0.0.1:8000
 - Swagger UI：<http://localhost:8000/docs>
 - ReDoc：<http://localhost:8000/redoc>
 - 健康检查：<http://localhost:8000/healthz>
+
+---
+
+## 四点五、测试环境
+
+`POST /api/v1/_test/reset` 用于测试重置数据，**仅**当以下两个环境变量**同时满足**时才被挂载：
+
+| 条件 | 取值 |
+|---|---|
+| `AUTOSHOP_ENV` | `test` |
+| `AUTOSHOP_ENABLE_TEST_API` | `true` |
+
+复制 `.env.test.example` 到 `.env` 即可一键启用：
+
+```bash
+cp .env.test.example .env
+python -m api_tests.common.db_manager reset    # 等价于 mysql ... < scripts/mock_data.sql
+pytest -q
+```
 
 ---
 
@@ -154,7 +198,7 @@ GET     /api/v1/orders/{orderId}
 GET     /api/v1/users/me
 PUT     /api/v1/users/me
 
-测试用(仅 DEBUG=true 时可用)
+测试用(仅当 AUTOSHOP_ENV=test && AUTOSHOP_ENABLE_TEST_API=true 时可用)
 POST    /api/v1/_test/reset
 ```
 

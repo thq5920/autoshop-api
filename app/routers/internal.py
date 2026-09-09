@@ -1,8 +1,8 @@
-"""测试用内部接口(仅当 DEBUG=true 时启用)。
+"""测试用内部接口。
 
-`POST /api/v1/_test/reset` 现在统一委托给 `app.seed.reset_test_data()`,
-后者是 `clear_test_data()` + `seed_test_data()` 的标准组合,
-不再使用 DROP TABLE + CREATE TABLE 的硬重置逻辑。
+只有当 app.config.settings.ENABLE_TEST_API == True 时才注册路由。
+两个条件（AUTOSHOP_ENV=test 且 AUTOSHOP_ENABLE_TEST_API=true）都满足才挂载。
+生产环境（任意一个不满足）此 Router 不会被挂载，请求 404。
 """
 from datetime import datetime, timezone
 
@@ -12,24 +12,21 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.response import ok
-from app.seed import reset_test_data
+from app.test_data import reset_test_data
 
 router = APIRouter(prefix="/_test", tags=["test-only"])
 
+if not settings.ENABLE_TEST_API:
+    # 生产环境：不挂载任何路由，请求返回 404
+    router = None
+else:
 
-@router.post("/reset", response_model=None)
-def reset(db: Session = Depends(get_db)):
-    """重置数据库:清空所有数据(TRUNCATE) + 重新插入固定 Seed 数据。
+    @router.post("/reset", response_model=None)
+    def reset(db: Session = Depends(get_db)):
+        """重置数据库：清空所有数据（TRUNCATE）+ 重新插入固定 mock 数据。
 
-    仅供自动化测试使用,DEBUG=false 时禁用。
-    业务数据 + 表结构 + Schema 的完整性由 Python 端 (`app.seed`) 统一维护,
-    这里不直接 import 任何 Model,以保持接口层职责单一。
-    """
-    if not settings.DEBUG:
-        raise HTTPException(status_code=403, detail="disabled in production")
-
-    # `db` 参数是为 FastAPI 依赖注入保留,实际重置逻辑在独立 Session 里执行
-    del db
-    reset_test_data()
-
-    return ok(data={"resetAt": int(datetime.now(timezone.utc).timestamp() * 1000)})
+        仅供自动化测试使用，必须 ENABLE_TEST_API == True。
+        """
+        del db  # 保留依赖注入保留字，实际重置在独立 Session 执行
+        reset_test_data()
+        return ok(data={"resetAt": int(datetime.now(timezone.utc).timestamp() * 1000)})

@@ -10,6 +10,7 @@ class CartItem(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "product_id", name="uq_user_product"),
         Index("ix_cart_user_id", "user_id"),
+        Index("ix_cart_product_id", "product_id"),
         {"mysql_comment": "购物车明细表"},
     )
 
