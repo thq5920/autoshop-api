@@ -157,8 +157,9 @@
     </div>
     <div class="sidebar-section">
       <div class="sidebar-section-title">其他</div>
-      <a class="sidebar-item" href="#seed-data">种子数据</a>
+      <a class="sidebar-item" href="#seed-data">演示数据（mock_data）</a>
       <a class="sidebar-item" href="#sql-scripts">建表 SQL</a>
+      <a class="sidebar-item" href="#index-summary">索引汇总</a>
     </div>
   </nav>
 
@@ -471,13 +472,13 @@
               <td>user_id</td>
               <td>INT</td>
               <td><span class="idx-tag">INDEX</span> NOT NULL</td>
-              <td>用户ID，逻辑关联 users.id（无 FOREIGN KEY）</td>
+              <td>用户ID，逻辑关联 users.id（无 FOREIGN KEY；<code>ix_cart_user_id</code>）</td>
             </tr>
             <tr>
               <td>product_id</td>
               <td>INT</td>
-              <td>NOT NULL</td>
-              <td>商品ID，逻辑关联 products.id（无 FOREIGN KEY）</td>
+              <td><span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>商品ID，逻辑关联 products.id（无 FOREIGN KEY；<code>ix_cart_product_id</code>）</td>
             </tr>
             <tr>
               <td>quantity</td>
@@ -634,13 +635,13 @@
               <td>order_id</td>
               <td>INT</td>
               <td><span class="idx-tag">INDEX</span> NOT NULL</td>
-              <td>订单ID，逻辑关联 orders.id（无 FOREIGN KEY）</td>
+              <td>订单ID，逻辑关联 orders.id（无 FOREIGN KEY；<code>ix_order_items_order_id</code>）</td>
             </tr>
             <tr>
               <td>product_id</td>
               <td>INT</td>
-              <td>NOT NULL</td>
-              <td>商品ID，逻辑关联 products.id（无 FOREIGN KEY）</td>
+              <td><span class="idx-tag">INDEX</span> NOT NULL</td>
+              <td>商品ID，逻辑关联 products.id（无 FOREIGN KEY；<code>ix_order_items_product_id</code>）</td>
             </tr>
             <tr>
               <td>product_name</td>
@@ -678,26 +679,33 @@
     </div>
 
     <!-- ═══════════════════════════════════════════ -->
-    <!--  种子数据                                  -->
+    <!--  演示数据                                  -->
     <!-- ═══════════════════════════════════════════ -->
     <div id="seed-data" class="section-divider">
-      <h2>种子数据</h2>
+      <h2>演示数据</h2>
     </div>
 
     <div class="table-card">
       <div class="table-card-header">
-        <span class="table-badge primary">SEED DATA</span>
-        <h3>商品种子数据（自动初始化）</h3>
+        <span class="table-badge primary">DEMO DATA</span>
+        <h3>演示数据（由 <code>scripts/mock_data.sql</code> 统一管理）</h3>
       </div>
       <div class="table-card-body">
-        <div class="info-box">首次启动时自动插入，覆盖 4 种商品场景用于测试。</div>
+        <div class="info-box">
+          <strong>职责划分：</strong>
+          <ul style="margin-top:6px;padding-left:20px">
+            <li><code>scripts/mock_data.sql</code>：<strong>唯一</strong>测试数据源。TRUNCATE 5 张表 → INSERT 100×5 条数据 → 数据完整性 SELECT 检查。可直接 <code>mysql ... &lt; scripts/mock_data.sql</code> 重置。</li>
+            <li><code>app.seed.seed_db()</code>：保留为可选 helper（不再在启动时无条件调用），需要时手工执行。</li>
+            <li>app 启动 (<code>@app.on_event("startup")</code>) <strong>仅</strong>执行 <code>init_db()</code> 建表，不再自动灌数据。</li>
+            <li><code>POST /api/v1/_test/reset</code>：底层调用 <code>app.test_data.reset_test_data()</code>，是测试环境唯一的 reset 入口。</li>
+          </ul>
+        </div>
+        <h4 style="margin:16px 0 8px;font-size:14px">演示商品（mock_data.sql 中前 4 条，用于覆盖核心测试场景）</h4>
         <table class="seed-table">
           <thead>
             <tr>
               <th>ID</th>
               <th>名称</th>
-              <th>描述</th>
-              <th>分类</th>
               <th>价格</th>
               <th>库存</th>
               <th>状态</th>
@@ -708,47 +716,42 @@
             <tr>
               <td>1001</td>
               <td>iPhone 17</td>
-              <td>最新款 iPhone</td>
-              <td>phone</td>
               <td>5999.00</td>
-              <td>100</td>
+              <td>120</td>
               <td>ON_SALE</td>
-              <td>✅ 正常商品</td>
+              <td>✅ 正常商品（主力测试商品）</td>
             </tr>
             <tr>
               <td>1002</td>
-              <td>MacBook Air</td>
-              <td>轻薄笔记本电脑</td>
-              <td>laptop</td>
+              <td>iPhone 17 Pro</td>
               <td>7999.00</td>
-              <td>50</td>
+              <td>86</td>
               <td>ON_SALE</td>
               <td>✅ 正常商品</td>
             </tr>
             <tr>
               <td>1003</td>
-              <td>AirPods</td>
-              <td>无线蓝牙耳机</td>
-              <td>earphones</td>
-              <td>999.00</td>
+              <td>iPhone 17 Pro Max</td>
+              <td>9999.00</td>
               <td>0</td>
               <td>ON_SALE</td>
-              <td>⚠️ 库存不足</td>
+              <td>⚠️ 库存不足（INSUFFICIENT_STOCK / 40503）</td>
             </tr>
             <tr>
               <td>1004</td>
-              <td>Test Offline Product</td>
-              <td>测试用下架商品</td>
-              <td>test</td>
-              <td>100.00</td>
+              <td>Samsung Galaxy S26</td>
+              <td>5499.00</td>
               <td>10</td>
               <td>OFF_SHELF</td>
-              <td>🚫 商品下架</td>
+              <td>🚫 商品下架（PRODUCT_OFF_SHELF / 40502，仅订单创建时拦截）</td>
             </tr>
           </tbody>
         </table>
         <div class="success-box" style="margin-top:16px">
-          <strong>Demo 用户：</strong>username: <code>demo</code>，password: <code>Demo@123456</code>（仅本地调试）
+          <strong>完整数据：</strong>users / products / cart_items / orders / order_items 共 <strong>5 × 100 条</strong>固定 mock 数据，详见 <code>scripts/mock_data.sql</code>。
+        </div>
+        <div class="info-box" style="margin-top:12px">
+          <strong>迁移脚本（新增）：</strong>历史库若带物理外键，请先执行 <code>python scripts/migrate_database.py</code>；该脚本幂等地删除所有历史外键并补齐 5 个逻辑关联字段的普通索引。
         </div>
       </div>
     </div>
@@ -820,7 +823,8 @@
   created_at  DATETIME       DEFAULT NULL            COMMENT <span class="str">'加入购物车时间'</span>,
   PRIMARY KEY (id),
   UNIQUE KEY uq_user_product (user_id, product_id),
-  INDEX ix_cart_user_id (user_id)
+  INDEX ix_cart_user_id (user_id),
+  INDEX ix_cart_product_id (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT=<span class="str">'购物车明细表'</span>;</pre>
 
@@ -851,14 +855,15 @@
   unit_price   DECIMAL(10,2) NOT NULL                COMMENT <span class="str">'下单时商品单价快照'</span>,
   amount       DECIMAL(10,2) NOT NULL                COMMENT <span class="str">'商品小计'</span>,
   PRIMARY KEY (id),
-  INDEX ix_order_items_order_id (order_id)
+  INDEX ix_order_items_order_id (order_id),
+  INDEX ix_order_items_product_id (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT=<span class="str">'订单商品明细表'</span>;</pre>
       </div>
     </div>
 
     <!-- ── 索引汇总 ── -->
-    <div class="section-divider">
+    <div id="index-summary" class="section-divider">
       <h2>索引汇总</h2>
     </div>
 
@@ -885,12 +890,14 @@
             <tr><td>products</td><td>ix_category</td><td><span class="idx-tag">INDEX</span></td><td>category</td><td>分类查询加速</td></tr>
             <tr><td>cart_items</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
             <tr><td>cart_items</td><td>uq_user_product</td><td><span class="uniq-tag">UNIQUE</span></td><td>user_id + product_id</td><td>复合唯一</td></tr>
-            <tr><td>cart_items</td><td>ix_user_id</td><td><span class="idx-tag">INDEX</span></td><td>user_id</td><td>用户购物车查询</td></tr>
+            <tr><td>cart_items</td><td>ix_cart_user_id</td><td><span class="idx-tag">INDEX</span></td><td>user_id</td><td>用户购物车查询</td></tr>
+            <tr><td>cart_items</td><td>ix_cart_product_id</td><td><span class="idx-tag">INDEX</span></td><td>product_id</td><td>商品维度查询（按 product_id）</td></tr>
             <tr><td>orders</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
             <tr><td>orders</td><td>uq_order_no</td><td><span class="uniq-tag">UNIQUE</span></td><td>order_no</td><td>订单号唯一</td></tr>
-            <tr><td>orders</td><td>ix_user_id</td><td><span class="idx-tag">INDEX</span></td><td>user_id</td><td>用户订单查询</td></tr>
+            <tr><td>orders</td><td>ix_orders_user_id</td><td><span class="idx-tag">INDEX</span></td><td>user_id</td><td>用户订单查询</td></tr>
             <tr><td>order_items</td><td>PRIMARY</td><td><span class="pk-tag">PK</span></td><td>id</td><td>主键</td></tr>
-            <tr><td>order_items</td><td>ix_order_id</td><td><span class="idx-tag">INDEX</span></td><td>order_id</td><td>订单明细查询</td></tr>
+            <tr><td>order_items</td><td>ix_order_items_order_id</td><td><span class="idx-tag">INDEX</span></td><td>order_id</td><td>订单明细查询</td></tr>
+            <tr><td>order_items</td><td>ix_order_items_product_id</td><td><span class="idx-tag">INDEX</span></td><td>product_id</td><td>商品销量统计 / 按商品查明细</td></tr>
           </tbody>
         </table>
       </div>
@@ -898,7 +905,7 @@
 
     <div class="footer">
       AutoShop API v1.0.0 &nbsp;·&nbsp; MySQL 8.0 &nbsp;·&nbsp; SQLAlchemy 2.0 &nbsp;·&nbsp; Powered by AutoShop Team<br>
-      文档生成于 2026-09-07
+      文档生成于 2026-09-09 (同步 scripts/migrate_database.py + api_tests/)
     </div>
   </main>
 </div>

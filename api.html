@@ -913,25 +913,46 @@
         <span class="method method-post">POST</span>
         <h2>/_test/reset</h2>
         <span class="no-auth-badge">无需鉴权</span>
-        <span class="auth-badge" style="background:#fee2e2;color:#991b1b">仅 DEBUG=true</span>
+        <span class="auth-badge" style="background:#fee2e2;color:#991b1b">双开关</span>
       </div>
       <div class="endpoint-body">
-        <p class="desc">重置商品库存为初始值、清空所有订单和购物车数据。用于自动化测试用例隔离，仅当 <code>AUTOSHOP_DEBUG=true</code> 时可用。</p>
-        <div class="section-title">商品种子数据（reset 后恢复）</div>
+        <p class="desc">
+          <strong>测试环境唯一的数据重置入口。</strong>TRUNCATE 5 张表 + 重新灌入 <code>scripts/mock_data.sql</code> 的固定 mock 数据（5 × 100 条），末尾 12 条 SELECT 检查保证无孤儿记录、订单/明细金额一致。
+          接口底层调用 <code>app.test_data.reset_test_data()</code>；<code>api_tests.common.db_manager</code> 也委托同一函数，禁止另行实现 reset/seed。
+        </p>
+        <div class="warning-box">
+          <strong>挂载条件（两个开关同时满足才注册此路由）：</strong>
+          <table style="margin-top:8px;border:1px solid #fde68a">
+            <thead><tr><th>环境变量</th><th>取值</th><th>默认值</th></tr></thead>
+            <tbody>
+              <tr><td><code>AUTOSHOP_ENV</code></td><td><code>test</code></td><td><code>dev</code></td></tr>
+              <tr><td><code>AUTOSHOP_ENABLE_TEST_API</code></td><td><code>true</code></td><td><code>false</code></td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top:6px">任一条件不满足 → 路由<strong>不被注册</strong>，请求返回 404（非 403，便于区分"未启用 / URL 错误"）。</p>
+          <p style="margin-top:6px">启用方式：<code>cp .env.test.example .env</code></p>
+        </div>
+        <div class="section-title">核心演示商品（reset 恢复，覆盖 4 类测试场景）</div>
         <table>
-          <thead><tr><th>productId</th><th>name</th><th>price</th><th>stock</th><th>status</th><th>用途</th></tr></thead>
+          <thead><tr><th>productId</th><th>name</th><th>price</th><th>stock</th><th>status</th><th>测试场景</th></tr></thead>
           <tbody>
-            <tr><td>1001</td><td>iPhone 17</td><td>5999.00</td><td>100</td><td>ON_SALE</td><td>正常商品</td></tr>
-            <tr><td>1002</td><td>MacBook Air</td><td>7999.00</td><td>50</td><td>ON_SALE</td><td>正常商品</td></tr>
-            <tr><td>1003</td><td>AirPods</td><td>999.00</td><td>0</td><td>ON_SALE</td><td>库存不足场景</td></tr>
-            <tr><td>1004</td><td>Test Offline Product</td><td>100.00</td><td>10</td><td>OFF_SHELF</td><td>商品下架场景</td></tr>
+            <tr><td>1001</td><td>iPhone 17</td><td>5999.00</td><td>120</td><td>ON_SALE</td><td>✅ 正常商品（主力测试）</td></tr>
+            <tr><td>1002</td><td>iPhone 17 Pro</td><td>7999.00</td><td>86</td><td>ON_SALE</td><td>✅ 正常商品</td></tr>
+            <tr><td>1003</td><td>iPhone 17 Pro Max</td><td>9999.00</td><td>0</td><td>ON_SALE</td><td>⚠️ 库存不足 → 40503 INSUFFICIENT_STOCK</td></tr>
+            <tr><td>1004</td><td>Samsung Galaxy S26</td><td>5499.00</td><td>10</td><td>OFF_SHELF</td><td>🚫 商品下架 → 40502 PRODUCT_OFF_SHELF（仅在创建订单时拦截）</td></tr>
           </tbody>
         </table>
+        <div class="info-box">
+          完整数据：<code>scripts/mock_data.sql</code> 一次性写入 5 × 100 条固定 mock 数据，
+          直接 <code>mysql -u autoshop -p autoshop &lt; scripts/mock_data.sql</code> 等价于此接口。
+          历史库若带物理外键，请先跑 <code>python scripts/migrate_database.py</code>（幂等，删 FK + 补逻辑 FK 索引）。
+        </div>
         <div class="section-title">错误码</div>
         <table>
           <thead><tr><th>HTTP</th><th>场景</th></tr></thead>
           <tbody>
-            <tr><td class="resp-4xx">403</td><td>AUTOSHOP_DEBUG=false 时调用（生产环境）</td></tr>
+            <tr><td class="resp-other">404</td><td><code>ENABLE_TEST_API</code> 未满足 → 路由未挂载</td></tr>
+            <tr><td class="resp-4xx">500</td><td>数据库不可达 / <code>scripts/mock_data.sql</code> 缺失</td></tr>
           </tbody>
         </table>
         <div class="example-block">
@@ -944,12 +965,24 @@
   <span class="key">"requestId"</span>: <span class="str">"req_xxx"</span>
 }</pre>
         </div>
+        <div class="example-block">
+          <div class="example-label">Python 客户端调用示例</div>
+<pre><span class="cmt"># python -m api_tests.common.db_manager reset</span>
+<span class="kw">import</span> httpx
+
+r = httpx.post(
+    <span class="str">"http://127.0.0.1:8000/api/v1/_test/reset"</span>,
+    timeout=<span class="num">30</span>,
+)
+<span class="kw">assert</span> r.status_code == <span class="num">200</span>, r.text
+<span class="cmt"># conftest.py 中:reset 非 200 直接 pytest.fail(),不允许 except: pass</span></pre>
+        </div>
       </div>
     </div>
 
     <div class="footer">
       AutoShop API v1.0.0 &nbsp;·&nbsp; FastAPI 0.115 &nbsp;·&nbsp; MySQL 8.0 &nbsp;·&nbsp; Powered by AutoShop Team<br>
-      文档生成于 2026-09-07
+      文档生成于 2026-09-09 (同步 mock_data.sql + migrate_database.py + api_tests/)
     </div>
   </main>
 </div>
